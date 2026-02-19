@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -19,27 +21,28 @@ public partial class MainViewModel : ObservableObject
     // Private state
     // -------------------------------------------------------------------------
 
-    private readonly RouteSolver _solver  = new();
-    private readonly City        _origin  = CityDataService.GetAlbany();
+    private readonly RouteSolver _solver = new();
+    private readonly City        _origin = CityDataService.GetAlbany();
 
     private CancellationTokenSource? _cts;
     private DispatcherTimer?          _elapsedTimer;
     private DateTime                  _computationStartedAt;
 
     // -------------------------------------------------------------------------
-    // Collections (read-only references; contents change via Add/Clear)
+    // Collections (read-only references; contents change via Add / Clear)
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// All cities parsed from the last loaded CSV file, with Albany excluded
-    /// because it is always the fixed origin/destination.
+    /// All cities parsed from the last loaded CSV file, wrapped so the view can
+    /// bind a <c>CheckBox.IsChecked</c> to each item. Albany is excluded because
+    /// it is always the fixed origin/destination.
     /// </summary>
-    public ObservableCollection<City> AvailableCities { get; } = [];
+    public ObservableCollection<SelectableCityViewModel> AvailableCities { get; } = [];
 
     /// <summary>
-    /// Delivery cities chosen by the user for the current route computation.
-    /// Must contain at least 2 entries before <see cref="StartComputationCommand"/>
-    /// becomes enabled.
+    /// Delivery cities currently checked by the user. Rebuilt from
+    /// <see cref="AvailableCities"/> whenever any <c>IsSelected</c> flag changes.
+    /// Must contain ≥ 2 entries before <see cref="StartComputationCommand"/> enables.
     /// </summary>
     public ObservableCollection<City> SelectedCities { get; } = [];
 
@@ -52,6 +55,11 @@ public partial class MainViewModel : ObservableObject
     /// or <see langword="null"/> if no search has finished yet.
     /// </summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasResult))]
+    [NotifyPropertyChangedFor(nameof(RouteDisplay))]
+    [NotifyPropertyChangedFor(nameof(ResultDistanceDisplay))]
+    [NotifyPropertyChangedFor(nameof(ResultPermutationsDisplay))]
+    [NotifyPropertyChangedFor(nameof(ResultElapsedDisplay))]
     private RouteResult? _currentResult;
 
     /// <summary>
@@ -59,6 +67,7 @@ public partial class MainViewModel : ObservableObject
     /// or <see langword="null"/> when no computation is active.
     /// </summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PermutationsDisplay))]
     private RouteProgressInfo? _currentProgress;
 
     /// <summary>
@@ -98,17 +107,64 @@ public partial class MainViewModel : ObservableObject
     private string _elapsedTimeDisplay = "00:00:00";
 
     // -------------------------------------------------------------------------
+    // Computed display properties (no backing field — raised manually)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Gets <see langword="true"/> when <see cref="CurrentResult"/> holds a
+    /// completed route, enabling the result overlay in the view.
+    /// </summary>
+    public bool HasResult => CurrentResult is not null;
+
+    /// <summary>
+    /// Gets a human-readable route string such as
+    /// <c>"Albany → Boston → New York → Albany"</c>.
+    /// </summary>
+    public string RouteDisplay =>
+        CurrentResult is null
+            ? string.Empty
+            : string.Join(" → ", CurrentResult.Route.Select(c => c.Name));
+
+    /// <summary>Gets the optimal distance formatted for display.</summary>
+    public string ResultDistanceDisplay =>
+        CurrentResult is null
+            ? string.Empty
+            : $"{CurrentResult.TotalDistance:F4}° (degree-distance)";
+
+    /// <summary>Gets the permutation count formatted for display.</summary>
+    public string ResultPermutationsDisplay =>
+        CurrentResult is null
+            ? string.Empty
+            : $"{CurrentResult.PermutationsEvaluated:N0} permutations evaluated";
+
+    /// <summary>Gets the elapsed solver time formatted for display.</summary>
+    public string ResultElapsedDisplay =>
+        CurrentResult is null
+            ? string.Empty
+            : $"Completed in {CurrentResult.ElapsedTime:mm\\:ss\\.ff}";
+
+    /// <summary>
+    /// Gets a status string showing how many permutations have been evaluated,
+    /// or an empty string when no computation is active.
+    /// </summary>
+    public string PermutationsDisplay =>
+        CurrentProgress is null
+            ? string.Empty
+            : $"Evaluated {CurrentProgress.PermutationsEvaluated:N0} of {CurrentProgress.TotalPermutations:N0}";
+
+    /// <summary>
+    /// Gets a summary such as <c>"3 of 11 cities selected"</c>
+    /// for display below the city list.
+    /// </summary>
+    public string SelectionSummary =>
+        $"{SelectedCities.Count} of {AvailableCities.Count} cities selected";
+
+    // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
 
-    /// <summary>Initializes a new <see cref="MainViewModel"/>.</summary>
-    public MainViewModel()
-    {
-        // SelectedCities.Count is part of CanStartComputation's guard, so we must
-        // raise NotifyCanExecuteChanged whenever the collection changes.
-        SelectedCities.CollectionChanged +=
-            (_, _) => StartComputationCommand.NotifyCanExecuteChanged();
-    }
+    /// <summary>Initialises a new <see cref="MainViewModel"/>.</summary>
+    public MainViewModel() { }
 
     // -------------------------------------------------------------------------
     // LoadDataCommand
@@ -117,8 +173,11 @@ public partial class MainViewModel : ObservableObject
     /// <summary>
     /// Opens a file-picker dialog, parses the chosen CSV with
     /// <see cref="CityDataService.LoadCitiesFromCsv"/>, and populates
-    /// <see cref="AvailableCities"/>. Albany is automatically excluded
-    /// because it is always the fixed origin.
+    /// <see cref="AvailableCities"/> with <see cref="SelectableCityViewModel"/>
+    /// wrappers. Albany is automatically excluded because it is always the
+    /// fixed origin. Each wrapper's <c>PropertyChanged</c> is wired to
+    /// <see cref="OnCitySelectionChanged"/> so that <see cref="SelectedCities"/>
+    /// stays in sync without any additional plumbing in the view.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanLoadData))]
     private async Task LoadDataAsync()
@@ -141,6 +200,10 @@ public partial class MainViewModel : ObservableObject
             var allCities = await Task.Run(
                 () => CityDataService.LoadCitiesFromCsv(dialog.FileName));
 
+            // Unsubscribe from old wrappers to avoid memory leaks.
+            foreach (var old in AvailableCities)
+                old.PropertyChanged -= OnCitySelectionChanged;
+
             AvailableCities.Clear();
             SelectedCities.Clear();
 
@@ -151,7 +214,9 @@ public partial class MainViewModel : ObservableObject
                     string.Equals(city.State, _origin.State, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                AvailableCities.Add(city);
+                var wrapper = new SelectableCityViewModel(city);
+                wrapper.PropertyChanged += OnCitySelectionChanged;
+                AvailableCities.Add(wrapper);
             }
 
             IsDataLoaded       = true;
@@ -159,8 +224,10 @@ public partial class MainViewModel : ObservableObject
             CurrentProgress    = null;
             ProgressPercent    = 0;
             ElapsedTimeDisplay = "00:00:00";
-            StatusMessage      =
-                $"Loaded {AvailableCities.Count} cities from \"{System.IO.Path.GetFileName(dialog.FileName)}\". " +
+            OnPropertyChanged(nameof(SelectionSummary));
+
+            StatusMessage =
+                $"Loaded {AvailableCities.Count} cities from \"{Path.GetFileName(dialog.FileName)}\". " +
                 "Select 2 or more delivery destinations, then click Compute Route.";
         }
         catch (Exception ex)
@@ -261,7 +328,7 @@ public partial class MainViewModel : ObservableObject
         }
         finally
         {
-            // Always clean up — even if an exception was thrown or the task was cancelled.
+            // Always clean up — even on exception or cancellation.
             _elapsedTimer.Stop();
             _elapsedTimer.Tick -= OnElapsedTimerTick;
             _elapsedTimer = null;
@@ -270,13 +337,13 @@ public partial class MainViewModel : ObservableObject
             _cts = null;
 
             CurrentProgress = null;
-            IsComputing     = false;   // re-enables LoadData / SelectAll / DeselectAll
+            IsComputing     = false;
         }
     }
 
     /// <summary>
-    /// Returns <see langword="true"/> when data is loaded, no computation is active,
-    /// and at least 2 delivery cities have been selected.
+    /// Returns <see langword="true"/> when data is loaded, no computation is
+    /// active, and at least 2 delivery cities have been selected.
     /// </summary>
     private bool CanStartComputation() =>
         IsDataLoaded && !IsComputing && SelectedCities.Count >= 2;
@@ -287,8 +354,8 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>
     /// Requests cooperative cancellation of the running solver via the
-    /// <see cref="CancellationTokenSource"/>. The solver will detect the
-    /// signal at the next permutation boundary and return <see langword="null"/>.
+    /// <see cref="CancellationTokenSource"/>. The solver detects the signal at
+    /// the next permutation boundary and returns <see langword="null"/>.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanCancelComputation))]
     private void CancelComputation()
@@ -305,20 +372,27 @@ public partial class MainViewModel : ObservableObject
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Moves all entries from <see cref="AvailableCities"/> into
+    /// Sets <c>IsSelected = true</c> on every wrapper in <see cref="AvailableCities"/>,
+    /// which cascades via <see cref="OnCitySelectionChanged"/> to rebuild
     /// <see cref="SelectedCities"/>.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanBulkSelect))]
     private void SelectAll()
     {
-        SelectedCities.Clear();
-        foreach (var city in AvailableCities)
-            SelectedCities.Add(city);
+        foreach (var wrapper in AvailableCities)
+            wrapper.IsSelected = true;
     }
 
-    /// <summary>Clears <see cref="SelectedCities"/>.</summary>
+    /// <summary>
+    /// Sets <c>IsSelected = false</c> on every wrapper, clearing
+    /// <see cref="SelectedCities"/>.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanBulkSelect))]
-    private void DeselectAll() => SelectedCities.Clear();
+    private void DeselectAll()
+    {
+        foreach (var wrapper in AvailableCities)
+            wrapper.IsSelected = false;
+    }
 
     /// <summary>
     /// Returns <see langword="true"/> when data has been loaded and no
@@ -329,6 +403,24 @@ public partial class MainViewModel : ObservableObject
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Called whenever any <see cref="SelectableCityViewModel.IsSelected"/>
+    /// property changes. Rebuilds <see cref="SelectedCities"/> from the checked
+    /// wrappers, then refreshes all dependent UI state.
+    /// </summary>
+    private void OnCitySelectionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(SelectableCityViewModel.IsSelected))
+            return;
+
+        SelectedCities.Clear();
+        foreach (var wrapper in AvailableCities.Where(w => w.IsSelected))
+            SelectedCities.Add(wrapper.City);
+
+        StartComputationCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(SelectionSummary));
+    }
 
     /// <summary>
     /// Handles a <see cref="RouteProgressInfo"/> snapshot delivered by the solver.
@@ -351,8 +443,7 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private void OnElapsedTimerTick(object? sender, EventArgs e)
     {
-        var elapsed = DateTime.Now - _computationStartedAt;
-        ElapsedTimeDisplay = elapsed.ToString(@"hh\:mm\:ss");
+        ElapsedTimeDisplay = (DateTime.Now - _computationStartedAt).ToString(@"hh\:mm\:ss");
     }
 
     /// <summary>

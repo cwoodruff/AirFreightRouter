@@ -3,5 +3,391 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
+
+        <!-- ================================================================ -->
+        <!-- COLOUR BRUSHES                                                    -->
+        <!-- ================================================================ -->
+
+        <!-- Backgrounds -->
+        <SolidColorBrush x:Key="BgMainBrush"       Color="#1E1E2E"/>
+        <SolidColorBrush x:Key="BgSidebarBrush"    Color="#252536"/>
+        <SolidColorBrush x:Key="BgStatusBarBrush"  Color="#16161F"/>
+        <SolidColorBrush x:Key="BgLogoBrush"       Color="#1B1B2D"/>
+        <SolidColorBrush x:Key="BgListBrush"       Color="#1C1C2C"/>
+        <SolidColorBrush x:Key="BgHoverBrush"      Color="#2A2A42"/>
+        <SolidColorBrush x:Key="BgResultBrush"     Color="#192840"/>
+        <SolidColorBrush x:Key="BgCardBrush"       Color="#21213A"/>
+
+        <!-- Accent (blue) -->
+        <SolidColorBrush x:Key="AccentBrush"        Color="#4A9DFF"/>
+        <SolidColorBrush x:Key="AccentHoverBrush"   Color="#3D85D8"/>
+        <SolidColorBrush x:Key="AccentPressedBrush" Color="#2D6CB0"/>
+        <SolidColorBrush x:Key="AccentDimBrush"     Color="#1A2E48"/>
+        <SolidColorBrush x:Key="AccentTextBrush"    Color="#4A9DFF"/>
+
+        <!-- Danger (red) -->
+        <SolidColorBrush x:Key="DangerBrush"        Color="#E05470"/>
+        <SolidColorBrush x:Key="DangerHoverBrush"   Color="#C03D5A"/>
+        <SolidColorBrush x:Key="DangerPressedBrush" Color="#A02E48"/>
+        <SolidColorBrush x:Key="DangerDimBrush"     Color="#2C1520"/>
+
+        <!-- Borders -->
+        <SolidColorBrush x:Key="BorderBrush"        Color="#38385A"/>
+        <SolidColorBrush x:Key="BorderSubtleBrush"  Color="#28283E"/>
+
+        <!-- Text -->
+        <SolidColorBrush x:Key="TextBrightBrush"    Color="#EEEEFF"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush"   Color="#A8A8C8"/>
+        <SolidColorBrush x:Key="TextMutedBrush"     Color="#5A5A7A"/>
+        <SolidColorBrush x:Key="TextDisabledBrush"  Color="#38385A"/>
+
+        <!-- ================================================================ -->
+        <!-- SCROLLBAR — slim dark thumb, no arrow buttons                    -->
+        <!-- ================================================================ -->
+
+        <Style x:Key="ScrollBarThumbStyle" TargetType="{x:Type Thumb}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="IsTabStop"             Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border Background="#4A4A6E" CornerRadius="3" Margin="2,2"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Invisible repeat-button fills the track page area -->
+        <Style x:Key="ScrollBarPageStyle" TargetType="{x:Type RepeatButton}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="IsTabStop"             Value="False"/>
+            <Setter Property="Focusable"             Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RepeatButton}">
+                        <Border Background="Transparent"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Implicit style applied to every vertical ScrollBar in the app -->
+        <Style TargetType="{x:Type ScrollBar}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="SnapsToDevicePixels"   Value="True"/>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Width"    Value="8"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                <Border Background="#1C1C2C" CornerRadius="4">
+                                    <Track x:Name="PART_Track"
+                                           IsDirectionReversed="True"
+                                           Margin="0,4">
+                                        <Track.DecreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource ScrollBarPageStyle}"
+                                                          Command="ScrollBar.PageUpCommand"/>
+                                        </Track.DecreaseRepeatButton>
+                                        <Track.Thumb>
+                                            <Thumb Style="{StaticResource ScrollBarThumbStyle}"/>
+                                        </Track.Thumb>
+                                        <Track.IncreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource ScrollBarPageStyle}"
+                                                          Command="ScrollBar.PageDownCommand"/>
+                                        </Track.IncreaseRepeatButton>
+                                    </Track>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ================================================================ -->
+        <!-- BUTTON STYLES                                                     -->
+        <!-- ================================================================ -->
+
+        <!-- Primary — accent blue, used for main actions -->
+        <Style x:Key="PrimaryButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="FontFamily"      Value="Segoe UI"/>
+            <Setter Property="FontSize"        Value="13"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="Background"      Value="{StaticResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="0,11"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background"
+                                        Value="{StaticResource AccentHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Root" Property="Background"
+                                        Value="{StaticResource AccentPressedBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Root" Property="Background"
+                                        Value="{StaticResource AccentDimBrush}"/>
+                                <Setter Property="Foreground"
+                                        Value="{StaticResource TextDisabledBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Danger — red, used for Cancel -->
+        <Style x:Key="DangerButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="FontFamily"      Value="Segoe UI"/>
+            <Setter Property="FontSize"        Value="13"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="Background"      Value="{StaticResource DangerBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="0,10"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background"
+                                        Value="{StaticResource DangerHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Root" Property="Background"
+                                        Value="{StaticResource DangerPressedBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Root" Property="Background"
+                                        Value="{StaticResource DangerDimBrush}"/>
+                                <Setter Property="Foreground"
+                                        Value="{StaticResource TextDisabledBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Secondary — subtle, used for Select All / Deselect All -->
+        <Style x:Key="SecondaryButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="FontFamily"      Value="Segoe UI"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="Foreground"      Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Background"      Value="#28283E"/>
+            <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"         Value="0,8"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background"
+                                        Value="{StaticResource BgHoverBrush}"/>
+                                <Setter TargetName="Root" Property="BorderBrush"
+                                        Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="Foreground"
+                                        Value="{StaticResource TextBrightBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Root" Property="Background"
+                                        Value="#1E1E38"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground"
+                                        Value="{StaticResource TextDisabledBrush}"/>
+                                <Setter TargetName="Root" Property="BorderBrush"
+                                        Value="{StaticResource BorderSubtleBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ================================================================ -->
+        <!-- CHECKBOX STYLE — custom dark tick box                            -->
+        <!-- ================================================================ -->
+
+        <Style x:Key="CityCheckBoxStyle" TargetType="{x:Type CheckBox}">
+            <Setter Property="FontFamily"               Value="Segoe UI"/>
+            <Setter Property="FontSize"                 Value="13"/>
+            <Setter Property="Foreground"               Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Cursor"                   Value="Hand"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type CheckBox}">
+                        <Grid Background="Transparent">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Tick box -->
+                            <Border x:Name="CheckBorder"
+                                    Grid.Column="0"
+                                    Width="16" Height="16"
+                                    CornerRadius="3"
+                                    BorderThickness="1.5"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    Background="Transparent"
+                                    VerticalAlignment="Center">
+                                <Path x:Name="Checkmark"
+                                      Data="M 2.5,7.5 L 6,11 L 13.5,3.5"
+                                      Stroke="White"
+                                      StrokeThickness="1.8"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Visibility="Collapsed"/>
+                            </Border>
+
+                            <!-- Label -->
+                            <ContentPresenter Grid.Column="1"
+                                              Margin="8,0,0,0"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckBorder" Property="Background"
+                                        Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="CheckBorder" Property="BorderBrush"
+                                        Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="Checkmark"   Property="Visibility"
+                                        Value="Visible"/>
+                                <Setter Property="Foreground"
+                                        Value="{StaticResource TextBrightBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CheckBorder" Property="BorderBrush"
+                                        Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="Foreground"
+                                        Value="{StaticResource TextBrightBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground"
+                                        Value="{StaticResource TextDisabledBrush}"/>
+                                <Setter TargetName="CheckBorder" Property="BorderBrush"
+                                        Value="{StaticResource TextDisabledBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ================================================================ -->
+        <!-- LISTBOX STYLES                                                    -->
+        <!-- ================================================================ -->
+
+        <!-- Container: rounded border, dark background, no horizontal scroll -->
+        <Style x:Key="CityListBoxStyle" TargetType="{x:Type ListBox}">
+            <Setter Property="Background"      Value="{StaticResource BgListBrush}"/>
+            <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding"         Value="4"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility"   Value="Auto"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ListBox}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ScrollViewer Padding="{TemplateBinding Padding}"
+                                          Focusable="False">
+                                <ItemsPresenter/>
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Item: hover highlight only, no WPF selection chrome -->
+        <Style x:Key="CityListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
+            <Setter Property="Padding"                    Value="6,4"/>
+            <Setter Property="Margin"                     Value="0,1"/>
+            <Setter Property="Background"                 Value="Transparent"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                        <Border x:Name="ItemBorder"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="4">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background"
+                                        Value="{StaticResource BgHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ================================================================ -->
+        <!-- PROGRESS BAR — slim, rounded, accent-coloured fill               -->
+        <!-- ================================================================ -->
+
+        <Style x:Key="SlimProgressBarStyle" TargetType="{x:Type ProgressBar}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ProgressBar}">
+                        <Border x:Name="PART_Track"
+                                Background="#22223A"
+                                BorderBrush="{StaticResource BorderSubtleBrush}"
+                                BorderThickness="1"
+                                CornerRadius="3">
+                            <Border x:Name="PART_Indicator"
+                                    Background="{StaticResource AccentBrush}"
+                                    HorizontalAlignment="Left"
+                                    CornerRadius="3"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Application.Resources>
 </Application>

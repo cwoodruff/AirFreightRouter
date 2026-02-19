@@ -1,11 +1,308 @@
 <Window x:Class="AirFreightRouter.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:AirFreightRouter.ViewModels"
         Title="SkyRoute Express – Air Freight Route Optimizer"
-        Width="1280"
-        Height="800"
+        Width="1280" Height="800" MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
-        Background="#1E1E2E">
+        Background="{StaticResource BgMainBrush}"
+        FontFamily="Segoe UI">
+
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
+    <!--
+        Root layout: two columns (sidebar | main), two rows (content | status bar)
+    -->
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ================================================================ -->
+        <!-- LEFT SIDEBAR                                                      -->
+        <!-- ================================================================ -->
+        <Border Grid.Row="0" Grid.Column="0"
+                Background="{StaticResource BgSidebarBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>  <!-- Logo / header -->
+                    <RowDefinition Height="Auto"/>  <!-- Separator -->
+                    <RowDefinition Height="Auto"/>  <!-- Load City Data button -->
+                    <RowDefinition Height="Auto"/>  <!-- Select All / Deselect All -->
+                    <RowDefinition Height="Auto"/>  <!-- "Available Cities" label -->
+                    <RowDefinition Height="*"/>     <!-- City list (fills space) -->
+                    <RowDefinition Height="Auto"/>  <!-- X of Y summary -->
+                    <RowDefinition Height="Auto"/>  <!-- Compute button -->
+                    <RowDefinition Height="Auto"/>  <!-- Cancel button -->
+                </Grid.RowDefinitions>
+
+                <!-- ── Row 0 · Logo ──────────────────────────────────────── -->
+                <Border Grid.Row="0"
+                        Background="{StaticResource BgLogoBrush}"
+                        Padding="20,22,20,22">
+                    <StackPanel Orientation="Horizontal">
+
+                        <!-- Plane icon in an accent-coloured badge -->
+                        <Border Background="{StaticResource AccentBrush}"
+                                CornerRadius="9" Width="40" Height="40"
+                                Margin="0,0,14,0">
+                            <TextBlock Text="✈"
+                                       FontFamily="Segoe UI Symbol"
+                                       FontSize="20"
+                                       Foreground="White"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="SkyRoute Express"
+                                       FontSize="16" FontWeight="Bold"
+                                       Foreground="{StaticResource TextBrightBrush}"/>
+                            <TextBlock Text="Optimal Route Calculator"
+                                       FontSize="10"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Margin="0,3,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── Row 1 · Separator ─────────────────────────────────── -->
+                <Rectangle Grid.Row="1" Height="1"
+                           Fill="{StaticResource BorderBrush}"/>
+
+                <!-- ── Row 2 · Load City Data ────────────────────────────── -->
+                <Button Grid.Row="2"
+                        Content="Load City Data"
+                        Command="{Binding LoadDataCommand}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Margin="16,18,16,10"/>
+
+                <!-- ── Row 3 · Bulk-selection helpers ────────────────────── -->
+                <Grid Grid.Row="3" Margin="16,0,16,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0"
+                            Content="Select All"
+                            Command="{Binding SelectAllCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}"/>
+                    <Button Grid.Column="2"
+                            Content="Deselect All"
+                            Command="{Binding DeselectAllCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}"/>
+                </Grid>
+
+                <!-- ── Row 4 · Section heading ───────────────────────────── -->
+                <TextBlock Grid.Row="4"
+                           Text="DELIVERY CITIES"
+                           FontSize="10" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           Margin="18,2,16,6"/>
+
+                <!-- ── Row 5 · Scrollable city list ──────────────────────── -->
+                <ListBox Grid.Row="5"
+                         ItemsSource="{Binding AvailableCities}"
+                         Style="{StaticResource CityListBoxStyle}"
+                         ItemContainerStyle="{StaticResource CityListBoxItemStyle}"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling"
+                         Margin="16,0,16,0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                      Content="{Binding DisplayName}"
+                                      Style="{StaticResource CityCheckBoxStyle}"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- ── Row 6 · Selection summary ─────────────────────────── -->
+                <TextBlock Grid.Row="6"
+                           Text="{Binding SelectionSummary}"
+                           FontSize="11"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="16,8,16,10"/>
+
+                <!-- ── Row 7 · Compute button ─────────────────────────────── -->
+                <Button Grid.Row="7"
+                        Content="Compute Shortest Route"
+                        Command="{Binding StartComputationCommand}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Margin="16,0,16,8"/>
+
+                <!-- ── Row 8 · Cancel button (hidden when idle) ───────────── -->
+                <Button Grid.Row="8"
+                        Content="Cancel Computation"
+                        Command="{Binding CancelComputationCommand}"
+                        Style="{StaticResource DangerButtonStyle}"
+                        Visibility="{Binding IsComputing,
+                                             Converter={StaticResource BoolToVis}}"
+                        Margin="16,0,16,16"/>
+            </Grid>
+        </Border>
+
+        <!-- ================================================================ -->
+        <!-- RIGHT PANEL — map area (placeholder) + result overlay            -->
+        <!-- ================================================================ -->
+        <Grid Grid.Row="0" Grid.Column="1">
+
+            <!-- Map placeholder — centered, always visible -->
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                <Border Background="#1F1F31"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="56,40">
+                    <StackPanel>
+                        <TextBlock Text="✈"
+                                   FontFamily="Segoe UI Symbol"
+                                   FontSize="52"
+                                   Foreground="{StaticResource BorderBrush}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="Map visualization will appear here"
+                                   FontSize="15"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,16,0,6"/>
+                        <TextBlock Text="Load cities and compute a route to see results"
+                                   FontSize="11"
+                                   Foreground="#34344E"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Result overlay — slides in at the top when a route is found -->
+            <Border VerticalAlignment="Top"
+                    Background="{StaticResource BgResultBrush}"
+                    BorderBrush="{StaticResource AccentBrush}"
+                    BorderThickness="0,0,0,2"
+                    Padding="24,14"
+                    Visibility="{Binding HasResult,
+                                         Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: route string -->
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="OPTIMAL ROUTE"
+                                   FontSize="9" FontWeight="Bold"
+                                   Foreground="{StaticResource AccentTextBrush}"
+                                   Margin="0,0,0,5"/>
+                        <TextBlock Text="{Binding RouteDisplay}"
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextBrightBrush}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <!-- Right: key metrics -->
+                    <StackPanel Grid.Column="1"
+                                Margin="32,0,0,0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ResultDistanceDisplay}"
+                                   FontSize="15" FontWeight="Bold"
+                                   Foreground="{StaticResource TextBrightBrush}"
+                                   HorizontalAlignment="Right"/>
+                        <TextBlock Text="{Binding ResultPermutationsDisplay}"
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   HorizontalAlignment="Right"
+                                   Margin="0,3,0,0"/>
+                        <TextBlock Text="{Binding ResultElapsedDisplay}"
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   HorizontalAlignment="Right"
+                                   Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ================================================================ -->
+        <!-- STATUS BAR                                                        -->
+        <!-- ================================================================ -->
+        <Border Grid.Row="1" Grid.ColumnSpan="2"
+                Background="{StaticResource BgStatusBarBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="16,0">
+            <Grid Height="38">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>    <!-- Status message -->
+                    <ColumnDefinition Width="260"/>  <!-- Progress bar -->
+                    <ColumnDefinition Width="20"/>   <!-- Gap -->
+                    <ColumnDefinition Width="Auto"/> <!-- Elapsed time -->
+                    <ColumnDefinition Width="16"/>   <!-- Gap -->
+                    <ColumnDefinition Width="1"/>    <!-- Divider -->
+                    <ColumnDefinition Width="16"/>   <!-- Gap -->
+                    <ColumnDefinition Width="Auto"/> <!-- Permutations counter -->
+                </Grid.ColumnDefinitions>
+
+                <!-- Status message (truncated if too long) -->
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           FontSize="12"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <!-- Slim progress bar -->
+                <ProgressBar Grid.Column="1"
+                             Value="{Binding ProgressPercent}"
+                             Maximum="100"
+                             Height="5"
+                             Style="{StaticResource SlimProgressBarStyle}"
+                             VerticalAlignment="Center"/>
+
+                <!-- Elapsed time with clock prefix -->
+                <StackPanel Grid.Column="3"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="⏱ "
+                               FontFamily="Segoe UI Symbol"
+                               FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ElapsedTimeDisplay}"
+                               FontFamily="Consolas"
+                               FontSize="12"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Vertical divider -->
+                <Rectangle Grid.Column="5"
+                           Fill="{StaticResource BorderBrush}"
+                           VerticalAlignment="Stretch"/>
+
+                <!-- Permutations counter (empty when idle) -->
+                <TextBlock Grid.Column="7"
+                           Text="{Binding PermutationsDisplay}"
+                           FontSize="11"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>
