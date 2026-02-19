@@ -389,5 +389,90 @@
             </Setter>
         </Style>
 
+        <!-- ================================================================ -->
+        <!-- RESULTS EXPANDER — dark themed, collapsible results panel        -->
+        <!-- ================================================================ -->
+
+        <!--
+            Custom ControlTemplate for the collapsible results panel.
+            Structure:
+              DockPanel
+               ├─ ToggleButton (header, docked top)  — click anywhere to expand/collapse
+               │    Content = Expander.Header (via TemplateBinding)
+               │    Renders via its own ControlTemplate: hover bg + ▼/▲ arrow
+               └─ ContentPresenter (body)             — hidden when IsExpanded = false
+        -->
+        <Style x:Key="ResultsExpanderStyle" TargetType="{x:Type Expander}">
+            <Setter Property="Background"      Value="#1A1A2C"/>
+            <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Expander}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <DockPanel LastChildFill="True">
+
+                                <!-- ── Header toggle button ──────────────── -->
+                                <ToggleButton DockPanel.Dock="Top"
+                                              x:Name="HeaderToggle"
+                                              Content="{TemplateBinding Header}"
+                                              ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                              IsChecked="{Binding IsExpanded, Mode=TwoWay,
+                                                          RelativeSource={RelativeSource TemplatedParent}}"
+                                              Focusable="False"
+                                              Background="Transparent"
+                                              BorderThickness="0"
+                                              Cursor="Hand">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                            <Border x:Name="HdrBg"
+                                                    Background="{TemplateBinding Background}"
+                                                    Cursor="Hand">
+                                                <DockPanel>
+                                                    <!-- Expand / collapse arrow -->
+                                                    <TextBlock x:Name="Arrow"
+                                                               DockPanel.Dock="Right"
+                                                               Text="▼"
+                                                               FontSize="9"
+                                                               Foreground="#55556E"
+                                                               VerticalAlignment="Center"
+                                                               Margin="0,0,16,0"/>
+                                                    <!-- Header content (set by Expander.Header) -->
+                                                    <ContentPresenter VerticalAlignment="Center"/>
+                                                </DockPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="HdrBg" Property="Background"
+                                                            Value="{StaticResource BgHoverBrush}"/>
+                                                </Trigger>
+                                                <!-- Arrow flips when checked (expanded) -->
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Arrow" Property="Text" Value="▲"/>
+                                                    <Setter TargetName="Arrow" Property="Foreground"
+                                                            Value="{StaticResource AccentTextBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+
+                                <!-- ── Collapsible body ──────────────────── -->
+                                <ContentPresenter x:Name="Body" Visibility="Collapsed"/>
+
+                            </DockPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="Body" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Application.Resources>
 </Application>

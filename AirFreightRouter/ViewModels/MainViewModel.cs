@@ -54,7 +54,7 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<City> SelectedCities { get; } = [];
 
     // -------------------------------------------------------------------------
-    // Observable properties
+    // Observable properties — solver state
     // -------------------------------------------------------------------------
 
     /// <summary>
@@ -113,10 +113,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _elapsedTimeDisplay = "00:00:00";
 
-    // ---- Map-specific observable properties ----------------------------------
+    // -------------------------------------------------------------------------
+    // Observable properties — map control bindings
+    // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Gets the route currently displayed on the map.  Updated in real-time
+    /// Gets the route currently displayed on the map. Updated in real-time
     /// (at most every 500 ms) while a computation is running; set to the
     /// final optimal route on completion; retained as the last partial route
     /// when the user cancels.
@@ -138,6 +140,55 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     private string _mapBestDistanceText = string.Empty;
+
+    // -------------------------------------------------------------------------
+    // Observable properties — results panel
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Controls the visibility of the results panel.  <see langword="true"/>
+    /// whenever a completed or partial route is available for display.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasResultPanel;
+
+    /// <summary>
+    /// "Optimal Route Found" on success, or
+    /// "Computation Cancelled – Best Route So Far" when cancelled with a partial route.
+    /// </summary>
+    [ObservableProperty]
+    private string _resultPanelTitle = string.Empty;
+
+    /// <summary>Total route distance formatted as "X.XXXX°".</summary>
+    [ObservableProperty]
+    private string _resultTotalDistanceText = string.Empty;
+
+    /// <summary>Permutation count formatted for display, or empty for partial results.</summary>
+    [ObservableProperty]
+    private string _resultPermutationsText = string.Empty;
+
+    /// <summary>Solver elapsed time formatted for display, or empty for partial results.</summary>
+    [ObservableProperty]
+    private string _resultElapsedText = string.Empty;
+
+    /// <summary>
+    /// One <see cref="RouteLeg"/> per segment of the route, in travel order.
+    /// Bound to the itinerary <c>ItemsControl</c>.
+    /// </summary>
+    [ObservableProperty]
+    private IReadOnlyList<RouteLeg> _resultLegs = [];
+
+    /// <summary>Average leg distance across all segments, formatted.</summary>
+    [ObservableProperty]
+    private string _resultAverageLegText = string.Empty;
+
+    /// <summary>Longest leg summary: "From → To  (X.XXXX°)".</summary>
+    [ObservableProperty]
+    private string _resultLongestLegText = string.Empty;
+
+    /// <summary>Shortest leg summary: "From → To  (X.XXXX°)".</summary>
+    [ObservableProperty]
+    private string _resultShortestLegText = string.Empty;
 
     // -------------------------------------------------------------------------
     // Computed display properties (no backing field — raised manually)
@@ -281,6 +332,7 @@ public partial class MainViewModel : ObservableObject
 
             OnPropertyChanged(nameof(SelectionSummary));
             OnPropertyChanged(nameof(MapCities));
+            RefreshResultPanel(null, false, null);
 
             StatusMessage =
                 $"Loaded {AvailableCities.Count} cities from \"{Path.GetFileName(dialog.FileName)}\". " +
@@ -344,6 +396,7 @@ public partial class MainViewModel : ObservableObject
         MapBestDistanceText   = string.Empty;
         _lastMapRouteUpdateAt = DateTime.MinValue;
         StatusMessage         = "Computing optimal route…";
+        RefreshResultPanel(null, false, null);
 
         _cts                  = new CancellationTokenSource();
         _computationStartedAt = DateTime.Now;
@@ -379,20 +432,24 @@ public partial class MainViewModel : ObservableObject
                     $"Distance: {result.TotalDistance:F4}°  |  " +
                     $"{result.PermutationsEvaluated:N0} permutations evaluated  |  " +
                     $"Elapsed: {result.ElapsedTime:mm\\:ss\\.ff}";
+                RefreshResultPanel(result.Route, false, result);
             }
             else
             {
-                // Cancelled — keep MapRoute as the last partial route found;
-                // update status so the map overlay shows the "(partial)" label.
+                // Cancelled — retain the last partial route on the map and in the
+                // results panel so the user can see how far the solver got.
+                var partialRoute = MapRoute;
                 ProgressPercent    = 0;
                 MapRouteStatusText = "Cancelled (partial)";
                 StatusMessage      = "Computation cancelled.";
+                RefreshResultPanel(partialRoute, true, null);
             }
         }
         catch (Exception ex)
         {
             MapRouteStatusText = string.Empty;
             StatusMessage      = $"Unexpected error during computation: {ex.Message}";
+            RefreshResultPanel(null, false, null);
         }
         finally
         {
@@ -516,8 +573,8 @@ public partial class MainViewModel : ObservableObject
             liveRoute.AddRange(info.CurrentBestRoute);
             liveRoute.Add(_origin);
 
-            MapRoute            = liveRoute;
-            MapBestDistanceText = $"{info.CurrentBestDistance:F4}°";
+            MapRoute              = liveRoute;
+            MapBestDistanceText   = $"{info.CurrentBestDistance:F4}°";
             _lastMapRouteUpdateAt = now;
         }
     }
@@ -529,6 +586,93 @@ public partial class MainViewModel : ObservableObject
     private void OnElapsedTimerTick(object? sender, EventArgs e)
     {
         ElapsedTimeDisplay = (DateTime.Now - _computationStartedAt).ToString(@"hh\:mm\:ss");
+    }
+
+    /// <summary>
+    /// Populates (or clears) all results-panel observable properties from a
+    /// completed or partial route.
+    /// </summary>
+    /// <param name="route">
+    /// The route to display — should be in [origin, c1, …, cN, origin] form.
+    /// Pass <see langword="null"/> to hide the panel.
+    /// </param>
+    /// <param name="cancelled">
+    /// <see langword="true"/> when the computation was cancelled before
+    /// finding the globally optimal route.
+    /// </param>
+    /// <param name="result">
+    /// The completed <see cref="RouteResult"/> on success, or
+    /// <see langword="null"/> for partial/cancelled routes.
+    /// </param>
+    private void RefreshResultPanel(IList<City>? route, bool cancelled, RouteResult? result)
+    {
+        // Need at least [origin, one delivery city, origin] = 3 entries.
+        if (route is null || route.Count < 3)
+        {
+            HasResultPanel        = false;
+            ResultPanelTitle      = string.Empty;
+            ResultTotalDistanceText = string.Empty;
+            ResultPermutationsText = string.Empty;
+            ResultElapsedText      = string.Empty;
+            ResultLegs             = [];
+            ResultAverageLegText   = string.Empty;
+            ResultLongestLegText   = string.Empty;
+            ResultShortestLegText  = string.Empty;
+            return;
+        }
+
+        HasResultPanel   = true;
+        ResultPanelTitle = cancelled
+            ? "Computation Cancelled – Best Route So Far"
+            : "Optimal Route Found";
+
+        if (result is not null)
+        {
+            ResultTotalDistanceText = $"{result.TotalDistance:F4}°";
+            ResultPermutationsText  = $"{result.PermutationsEvaluated:N0} permutations";
+            ResultElapsedText       = $"{result.ElapsedTime:mm\\:ss\\.ff}";
+        }
+        else
+        {
+            // For a partial/cancelled route, compute the total distance on the fly.
+            double total = 0;
+            for (int i = 0; i < route.Count - 1; i++)
+                total += route[i].DistanceTo(route[i + 1]);
+            ResultTotalDistanceText = $"{total:F4}° (partial)";
+            ResultPermutationsText  = string.Empty;
+            ResultElapsedText       = string.Empty;
+        }
+
+        // Build the leg list.
+        var legs    = new List<RouteLeg>(route.Count - 1);
+        double cumDist = 0;
+        for (int i = 0; i < route.Count - 1; i++)
+        {
+            double legDist = route[i].DistanceTo(route[i + 1]);
+            cumDist += legDist;
+            legs.Add(new RouteLeg
+            {
+                LegNumber          = i + 1,
+                FromCity           = route[i],
+                ToCity             = route[i + 1],
+                LegDistance        = legDist,
+                CumulativeDistance = cumDist,
+                IsReturn           = (i == route.Count - 2),
+                IsAlternate        = (i % 2 == 1)
+            });
+        }
+        ResultLegs = legs;
+
+        // Statistics.
+        var longestLeg  = legs.MaxBy(l => l.LegDistance)!;
+        var shortestLeg = legs.MinBy(l => l.LegDistance)!;
+        double avg      = legs.Average(l => l.LegDistance);
+
+        ResultAverageLegText  = $"{avg:F4}°";
+        ResultLongestLegText  =
+            $"{longestLeg.FromCity.Name} → {longestLeg.ToCity.Name}  ({longestLeg.LegDistance:F4}°)";
+        ResultShortestLegText =
+            $"{shortestLeg.FromCity.Name} → {shortestLeg.ToCity.Name}  ({shortestLeg.LegDistance:F4}°)";
     }
 
     /// <summary>
