@@ -21,8 +21,9 @@ public partial class MainViewModel : ObservableObject
     // Private state
     // -------------------------------------------------------------------------
 
-    private readonly RouteSolver _solver = new();
-    private readonly City        _origin = CityDataService.GetAlbany();
+    private readonly RouteSolver _solver        = new();
+    private readonly City        _defaultOrigin = CityDataService.GetAlbany();
+    private          City        _origin;
 
     private CancellationTokenSource? _cts;
     private DispatcherTimer?          _elapsedTimer;
@@ -87,6 +88,7 @@ public partial class MainViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(CancelComputationCommand))]
     [NotifyCanExecuteChangedFor(nameof(SelectAllCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeselectAllCommand))]
+    [NotifyPropertyChangedFor(nameof(ComputeButtonTooltip))]
     private bool _isComputing;
 
     /// <summary>
@@ -96,6 +98,7 @@ public partial class MainViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(StartComputationCommand))]
     [NotifyCanExecuteChangedFor(nameof(SelectAllCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeselectAllCommand))]
+    [NotifyPropertyChangedFor(nameof(ComputeButtonTooltip))]
     private bool _isDataLoaded;
 
     /// <summary>Gets a human-readable description of the current application state.</summary>
@@ -237,6 +240,24 @@ public partial class MainViewModel : ObservableObject
             : $"Evaluated {CurrentProgress.PermutationsEvaluated:N0} of {CurrentProgress.TotalPermutations:N0}";
 
     /// <summary>
+    /// Gets the tooltip shown on the Compute button, explaining the current
+    /// state or why the button may be disabled.
+    /// </summary>
+    public string ComputeButtonTooltip
+    {
+        get
+        {
+            if (IsComputing)
+                return "Computation in progress — press Escape or click Cancel to stop.";
+            if (!IsDataLoaded)
+                return "Load a CSV file first (Ctrl+O).";
+            if (SelectedCities.Count < 2)
+                return "Select at least 2 delivery cities.";
+            return $"Find the shortest route through {SelectedCities.Count} cities (Ctrl+Enter).";
+        }
+    }
+
+    /// <summary>
     /// Gets a summary such as <c>"3 of 11 cities selected"</c>
     /// for display below the city list.
     /// </summary>
@@ -265,7 +286,10 @@ public partial class MainViewModel : ObservableObject
     // -------------------------------------------------------------------------
 
     /// <summary>Initialises a new <see cref="MainViewModel"/>.</summary>
-    public MainViewModel() { }
+    public MainViewModel()
+    {
+        _origin = _defaultOrigin;
+    }
 
     // -------------------------------------------------------------------------
     // LoadDataCommand
@@ -298,8 +322,41 @@ public partial class MainViewModel : ObservableObject
             StatusMessage = "Loading city data…";
 
             // Parse on a background thread so the UI stays responsive.
-            var allCities = await Task.Run(
-                () => CityDataService.LoadCitiesFromCsv(dialog.FileName));
+            List<City> allCities;
+            try
+            {
+                allCities = await Task.Run(
+                    () => CityDataService.LoadCitiesFromCsv(dialog.FileName));
+            }
+            catch (FileNotFoundException)
+            {
+                MessageBox.Show(
+                    "The selected file could not be found.\n\n" +
+                    "It may have been moved or deleted since you opened the dialog.",
+                    "File Not Found",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusMessage = "File not found.";
+                return;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                MessageBox.Show(
+                    "You do not have permission to read this file.\n\n" +
+                    "Try running the application as an administrator, or choose a different file.",
+                    "Access Denied",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusMessage = "Access denied.";
+                return;
+            }
+            catch (IOException ex)
+            {
+                MessageBox.Show(
+                    $"A file I/O error occurred while reading the CSV:\n\n{ex.Message}",
+                    "File Read Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusMessage = $"I/O error: {ex.Message}";
+                return;
+            }
 
             // Unsubscribe from old wrappers to avoid memory leaks.
             foreach (var old in AvailableCities)
@@ -307,6 +364,14 @@ public partial class MainViewModel : ObservableObject
 
             AvailableCities.Clear();
             SelectedCities.Clear();
+
+            // Detect Albany — use CSV coordinates if available, otherwise fall back
+            // to the hardcoded default.  Must happen before the loop so the skip
+            // comparison uses the correct name/state pair.
+            var albanyInCsv = allCities.FirstOrDefault(c =>
+                string.Equals(c.Name,  "Albany", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(c.State, "NY",     StringComparison.OrdinalIgnoreCase));
+            _origin = albanyInCsv ?? _defaultOrigin;
 
             foreach (var city in allCities)
             {
@@ -320,6 +385,20 @@ public partial class MainViewModel : ObservableObject
                 AvailableCities.Add(wrapper);
             }
 
+            // Validate that the file contains at least 2 deliverable cities.
+            if (AvailableCities.Count < 2)
+            {
+                MessageBox.Show(
+                    $"The selected file contains only {AvailableCities.Count} " +
+                    (AvailableCities.Count == 1 ? "city" : "cities") +
+                    " suitable for delivery (Albany is excluded as the fixed origin).\n\n" +
+                    "Please choose a file with at least 2 delivery cities.",
+                    "Too Few Cities",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                StatusMessage = "File must contain at least 2 delivery cities.";
+                return;
+            }
+
             IsDataLoaded          = true;
             CurrentResult         = null;
             CurrentProgress       = null;
@@ -331,15 +410,21 @@ public partial class MainViewModel : ObservableObject
             _lastMapRouteUpdateAt = DateTime.MinValue;
 
             OnPropertyChanged(nameof(SelectionSummary));
+            OnPropertyChanged(nameof(MapOrigin));
             OnPropertyChanged(nameof(MapCities));
             RefreshResultPanel(null, false, null);
 
             StatusMessage =
                 $"Loaded {AvailableCities.Count} cities from \"{Path.GetFileName(dialog.FileName)}\". " +
+                (albanyInCsv is not null ? "Using Albany coordinates from file. " : string.Empty) +
                 "Select 2 or more delivery destinations, then click Compute Route.";
         }
         catch (Exception ex)
         {
+            MessageBox.Show(
+                $"An unexpected error occurred while loading the city data:\n\n{ex.Message}",
+                "Unexpected Error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
             StatusMessage = $"Error loading file: {ex.Message}";
         }
     }
@@ -372,11 +457,14 @@ public partial class MainViewModel : ObservableObject
         // Warn the user when the search space grows large enough to be slow.
         if (SelectedCities.Count > 12)
         {
-            long perms = ComputeFactorial(SelectedCities.Count);
+            long   perms    = RouteSolver.Factorial(SelectedCities.Count);
+            double estSecs  = await RouteSolver.EstimateSecondsAsync(SelectedCities.ToList(), _origin);
+            string duration = FormatEstimatedDuration(estSecs);
+
             var answer = MessageBox.Show(
                 $"You have selected {SelectedCities.Count} cities.\n\n" +
-                $"The brute-force solver must evaluate {perms:N0} permutations. " +
-                "This may take a very long time.\n\n" +
+                $"The brute-force solver must evaluate {perms:N0} permutations.\n" +
+                $"Estimated time on this machine: {duration}.\n\n" +
                 "Do you want to proceed?",
                 "Warning: Factorial Explosion",
                 MessageBoxButton.YesNo,
@@ -545,6 +633,7 @@ public partial class MainViewModel : ObservableObject
 
         StartComputationCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(SelectionSummary));
+        OnPropertyChanged(nameof(ComputeButtonTooltip));
     }
 
     /// <summary>
@@ -676,14 +765,15 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Computes n! as a <see langword="long"/>, used only for the
-    /// "factorial explosion" warning message.
+    /// Converts a duration in seconds to a human-readable string, choosing
+    /// the most appropriate unit: seconds, minutes, hours, or days.
     /// </summary>
-    private static long ComputeFactorial(int n)
+    private static string FormatEstimatedDuration(double seconds)
     {
-        if (n <= 1) return 1L;
-        long result = 1L;
-        for (int k = 2; k <= n; k++) result *= k;
-        return result;
+        if (seconds == double.MaxValue) return "extremely long (overflow)";
+        if (seconds >= 86_400) return $"{seconds / 86_400:F1} days";
+        if (seconds >=  3_600) return $"{seconds /  3_600:F1} hours";
+        if (seconds >=     60) return $"{seconds /     60:F1} minutes";
+        return $"{seconds:F1} seconds";
     }
 }

@@ -215,14 +215,59 @@ public class RouteSolver
     /// <summary>
     /// Computes n! as a <see langword="long"/>.
     /// Valid for 0 ≤ n ≤ 20 (20! is the largest factorial that fits in a
-    /// <see langword="long"/>; beyond ~13 the brute-force solver is impractical).
+    /// <see langword="long"/>). Returns <see cref="long.MaxValue"/> for n &gt; 20
+    /// to signal overflow without throwing.
     /// </summary>
-    private static long Factorial(int n)
+    internal static long Factorial(int n)
     {
+        if (n > 20) return long.MaxValue;
         if (n <= 1) return 1L;
         long result = 1L;
         for (int k = 2; k <= n; k++)
             result *= k;
         return result;
+    }
+
+    /// <summary>
+    /// Benchmarks the route-distance inner loop on this machine and extrapolates
+    /// the expected wall-clock time to evaluate all n! permutations.
+    /// </summary>
+    /// <param name="deliveryCities">The delivery cities to include in the benchmark.</param>
+    /// <param name="origin">The fixed start/end point of each route.</param>
+    /// <returns>
+    /// Estimated seconds to brute-force all permutations, or
+    /// <see cref="double.MaxValue"/> if the permutation count overflows
+    /// <see langword="long"/>. Returns <c>0.0</c> if fewer than 2 delivery cities
+    /// are provided (nothing meaningful to estimate).
+    /// </returns>
+    public static async Task<double> EstimateSecondsAsync(List<City> deliveryCities, City origin)
+    {
+        int n = deliveryCities.Count;
+        if (n <= 1) return 0.0;
+
+        long totalPerms = Factorial(n);
+        if (totalPerms == long.MaxValue) return double.MaxValue;
+
+        return await Task.Run(() =>
+        {
+            const int SampleSize = 1_000;
+            var sw   = Stopwatch.StartNew();
+            double sink = 0;
+
+            for (int iter = 0; iter < SampleSize; iter++)
+            {
+                double d = origin.DistanceTo(deliveryCities[0]);
+                for (int k = 1; k < n; k++)
+                    d += deliveryCities[k - 1].DistanceTo(deliveryCities[k]);
+                d += deliveryCities[n - 1].DistanceTo(origin);
+                sink += d;  // prevent dead-code elimination
+            }
+
+            sw.Stop();
+            _ = sink;
+
+            // ms-per-permutation × total-permutations → total-ms → seconds
+            return sw.Elapsed.TotalMilliseconds / SampleSize * totalPerms / 1_000.0;
+        });
     }
 }

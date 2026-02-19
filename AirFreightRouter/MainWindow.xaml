@@ -13,6 +13,12 @@
         <vm:MainViewModel/>
     </Window.DataContext>
 
+    <Window.InputBindings>
+        <KeyBinding Key="O"      Modifiers="Ctrl" Command="{Binding LoadDataCommand}"/>
+        <KeyBinding Key="Return" Modifiers="Ctrl" Command="{Binding StartComputationCommand}"/>
+        <KeyBinding Key="Escape"                  Command="{Binding CancelComputationCommand}"/>
+    </Window.InputBindings>
+
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </Window.Resources>
@@ -118,11 +124,20 @@
                 <!-- ── Row 5 · Scrollable city list ──────────────────────── -->
                 <ListBox Grid.Row="5"
                          ItemsSource="{Binding AvailableCities}"
-                         Style="{StaticResource CityListBoxStyle}"
                          ItemContainerStyle="{StaticResource CityListBoxItemStyle}"
                          VirtualizingPanel.IsVirtualizing="True"
                          VirtualizingPanel.VirtualizationMode="Recycling"
                          Margin="16,0,16,0">
+                    <ListBox.Style>
+                        <Style TargetType="ListBox" BasedOn="{StaticResource CityListBoxStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsComputing}" Value="True">
+                                    <Setter Property="IsEnabled" Value="False"/>
+                                    <Setter Property="Opacity"   Value="0.45"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.Style>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
@@ -145,6 +160,8 @@
                         Content="Compute Shortest Route"
                         Command="{Binding StartComputationCommand}"
                         Style="{StaticResource PrimaryButtonStyle}"
+                        ToolTip="{Binding ComputeButtonTooltip}"
+                        ToolTipService.ShowOnDisabled="True"
                         Margin="16,0,16,8"/>
 
                 <!-- ── Row 8 · Cancel button (hidden when idle) ───────────── -->
@@ -179,6 +196,37 @@
                     IsRouteInProgress="{Binding IsComputing}"
                     RouteStatusText="{Binding MapRouteStatusText}"
                     BestDistanceText="{Binding MapBestDistanceText}"/>
+
+                <!-- Computing spinner — centred on the map while IsComputing=True -->
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Background="#DD0C0C1A"
+                        CornerRadius="12"
+                        Padding="20"
+                        Visibility="{Binding IsComputing,
+                                             Converter={StaticResource BoolToVis}}">
+                    <Ellipse Width="44" Height="44"
+                             Stroke="{StaticResource AccentBrush}"
+                             StrokeThickness="3.5"
+                             StrokeDashArray="9 5"
+                             RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.RenderTransform>
+                            <RotateTransform x:Name="SpinnerRotate" Angle="0"/>
+                        </Ellipse.RenderTransform>
+                        <Ellipse.Triggers>
+                            <EventTrigger RoutedEvent="Ellipse.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation
+                                            Storyboard.TargetName="SpinnerRotate"
+                                            Storyboard.TargetProperty="Angle"
+                                            From="0" To="360"
+                                            Duration="0:0:0.9"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Ellipse.Triggers>
+                    </Ellipse>
+                </Border>
 
                 <!-- Result overlay — slides in at the top when a route is found -->
                 <Border VerticalAlignment="Top"
