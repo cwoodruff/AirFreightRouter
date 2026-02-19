@@ -101,6 +101,13 @@ public partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ComputeButtonTooltip))]
     private bool _isDataLoaded;
 
+    /// <summary>
+    /// Gets whether the progress bar should display an indeterminate animation
+    /// while the computation is initialising (before the first progress report).
+    /// </summary>
+    [ObservableProperty]
+    private bool _isProgressIndeterminate;
+
     /// <summary>Gets a human-readable description of the current application state.</summary>
     [ObservableProperty]
     private string _statusMessage = "Load a city CSV file to begin.";
@@ -475,8 +482,9 @@ public partial class MainViewModel : ObservableObject
         }
 
         // --- Initialise state ---
-        IsComputing           = true;
-        CurrentResult         = null;
+        IsComputing             = true;
+        IsProgressIndeterminate = true;
+        CurrentResult           = null;
         CurrentProgress       = null;
         ProgressPercent       = 0;
         MapRoute              = null;
@@ -549,8 +557,9 @@ public partial class MainViewModel : ObservableObject
             _cts.Dispose();
             _cts = null;
 
-            CurrentProgress = null;
-            IsComputing     = false;
+            IsProgressIndeterminate = false;
+            CurrentProgress         = null;
+            IsComputing             = false;
         }
     }
 
@@ -644,6 +653,8 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private void OnProgressReceived(RouteProgressInfo info)
     {
+        if (IsProgressIndeterminate)
+            IsProgressIndeterminate = false;
         CurrentProgress = info;
         ProgressPercent = info.PercentComplete;
         StatusMessage   =

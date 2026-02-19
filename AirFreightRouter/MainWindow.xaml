@@ -7,7 +7,15 @@
         Width="1280" Height="800" MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgMainBrush}"
-        FontFamily="Segoe UI">
+        FontFamily="Segoe UI"
+        WindowStyle="None"
+        ResizeMode="CanResize">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0"
+                      ResizeBorderThickness="6"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
 
     <Window.DataContext>
         <vm:MainViewModel/>
@@ -28,6 +36,7 @@
     -->
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="44"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -37,9 +46,164 @@
         </Grid.ColumnDefinitions>
 
         <!-- ================================================================ -->
+        <!-- TITLE BAR                                                         -->
+        <!-- ================================================================ -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2"
+                Background="{StaticResource BgSidebarBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: logo badge + title -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            VerticalAlignment="Center" Margin="12,0,0,0">
+                    <Border Background="{StaticResource AccentBrush}"
+                            CornerRadius="7" Width="28" Height="28"
+                            Margin="0,0,10,0">
+                        <TextBlock Text="✈"
+                                   FontFamily="Segoe UI Symbol"
+                                   FontSize="14"
+                                   Foreground="White"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="SkyRoute Express"
+                               FontSize="13" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextBrightBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Right: About + system buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+
+                    <!-- About -->
+                    <Button Content="?"
+                            Width="44" Height="44"
+                            FontSize="15" FontWeight="Bold"
+                            Foreground="{StaticResource TextPrimaryBrush}"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Click="AboutButton_Click"
+                            WindowChrome.IsHitTestVisibleInChrome="True"
+                            ToolTip="About SkyRoute Express"
+                            Style="{x:Null}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bg" Background="Transparent">
+                                    <ContentPresenter HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#22FFFFFF"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#33FFFFFF"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Minimize -->
+                    <Button Content="─"
+                            Width="44" Height="44"
+                            FontSize="13"
+                            Foreground="{StaticResource TextPrimaryBrush}"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Click="MinimizeButton_Click"
+                            WindowChrome.IsHitTestVisibleInChrome="True"
+                            Style="{x:Null}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bg" Background="Transparent">
+                                    <ContentPresenter HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#22FFFFFF"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#33FFFFFF"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Maximize / Restore -->
+                    <Button x:Name="MaximizeButton"
+                            Content="□"
+                            Width="44" Height="44"
+                            FontSize="13"
+                            Foreground="{StaticResource TextPrimaryBrush}"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Click="MaximizeButton_Click"
+                            WindowChrome.IsHitTestVisibleInChrome="True"
+                            Style="{x:Null}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bg" Background="Transparent">
+                                    <ContentPresenter HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#22FFFFFF"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#33FFFFFF"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Close — red hover -->
+                    <Button Content="✕"
+                            Width="44" Height="44"
+                            FontSize="13"
+                            Foreground="{StaticResource TextPrimaryBrush}"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Click="CloseButton_Click"
+                            WindowChrome.IsHitTestVisibleInChrome="True"
+                            Style="{x:Null}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Bg" Background="Transparent">
+                                    <ContentPresenter HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#C42B1C"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="#A01A0F"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ================================================================ -->
         <!-- LEFT SIDEBAR                                                      -->
         <!-- ================================================================ -->
-        <Border Grid.Row="0" Grid.Column="0"
+        <Border Grid.Row="1" Grid.Column="0"
                 Background="{StaticResource BgSidebarBrush}"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="0,0,1,0">
@@ -180,7 +344,7 @@
         <!--   Row 0 (*):    Map area + floating result-summary overlay       -->
         <!--   Row 1 (Auto): Collapsible results panel (Expander)             -->
         <!-- ================================================================ -->
-        <Grid Grid.Row="0" Grid.Column="1">
+        <Grid Grid.Row="1" Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" MinHeight="100"/>
                 <RowDefinition Height="Auto"/>
@@ -298,7 +462,7 @@
                         <!-- Title + total distance (two lines) -->
                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                             <TextBlock Text="{Binding ResultPanelTitle}"
-                                       FontSize="13" FontWeight="SemiBold"
+                                       FontSize="14" FontWeight="SemiBold"
                                        Foreground="{StaticResource TextBrightBrush}"/>
                             <TextBlock FontSize="11" Margin="0,4,0,0">
                                 <Run Text="Total distance: "
@@ -427,7 +591,7 @@
                                                         HorizontalAlignment="Right"
                                                         Margin="4,0">
                                                 <TextBlock Text="LEG"
-                                                           FontSize="8" FontWeight="SemiBold"
+                                                           FontSize="10" FontWeight="SemiBold"
                                                            Foreground="{StaticResource TextMutedBrush}"
                                                            Margin="0,0,0,2"/>
                                                 <TextBlock Text="{Binding LegDistanceDisplay}"
@@ -442,7 +606,7 @@
                                                         HorizontalAlignment="Right"
                                                         Margin="4,0,2,0">
                                                 <TextBlock Text="TOTAL"
-                                                           FontSize="8" FontWeight="SemiBold"
+                                                           FontSize="10" FontWeight="SemiBold"
                                                            Foreground="{StaticResource TextMutedBrush}"
                                                            Margin="0,0,0,2"/>
                                                 <TextBlock Text="{Binding CumulativeDistanceDisplay}"
@@ -491,19 +655,19 @@
                             <!-- Average leg distance -->
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="AVG LEG DISTANCE"
-                                           FontSize="8" FontWeight="SemiBold"
+                                           FontSize="10" FontWeight="SemiBold"
                                            Foreground="{StaticResource TextMutedBrush}"
                                            Margin="0,0,0,3"/>
                                 <TextBlock Text="{Binding ResultAverageLegText}"
                                            FontFamily="Consolas"
-                                           FontSize="12"
+                                           FontSize="13"
                                            Foreground="{StaticResource TextPrimaryBrush}"/>
                             </StackPanel>
 
                             <!-- Longest leg -->
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="LONGEST LEG"
-                                           FontSize="8" FontWeight="SemiBold"
+                                           FontSize="10" FontWeight="SemiBold"
                                            Foreground="{StaticResource TextMutedBrush}"
                                            Margin="0,0,0,3"/>
                                 <TextBlock Text="{Binding ResultLongestLegText}"
@@ -515,7 +679,7 @@
                             <!-- Shortest leg -->
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="SHORTEST LEG"
-                                           FontSize="8" FontWeight="SemiBold"
+                                           FontSize="10" FontWeight="SemiBold"
                                            Foreground="{StaticResource TextMutedBrush}"
                                            Margin="0,0,0,3"/>
                                 <TextBlock Text="{Binding ResultShortestLegText}"
@@ -533,7 +697,7 @@
         <!-- ================================================================ -->
         <!-- STATUS BAR                                                        -->
         <!-- ================================================================ -->
-        <Border Grid.Row="1" Grid.ColumnSpan="2"
+        <Border Grid.Row="2" Grid.ColumnSpan="2"
                 Background="{StaticResource BgStatusBarBrush}"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="0,1,0,0"
@@ -561,6 +725,7 @@
                 <!-- Slim progress bar -->
                 <ProgressBar Grid.Column="1"
                              Value="{Binding ProgressPercent}"
+                             IsIndeterminate="{Binding IsProgressIndeterminate}"
                              Maximum="100"
                              Height="5"
                              Style="{StaticResource SlimProgressBarStyle}"

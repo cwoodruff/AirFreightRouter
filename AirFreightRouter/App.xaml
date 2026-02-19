@@ -25,19 +25,23 @@
         <SolidColorBrush x:Key="AccentDimBrush"     Color="#1A2E48"/>
         <SolidColorBrush x:Key="AccentTextBrush"    Color="#4A9DFF"/>
 
-        <!-- Danger (red) -->
-        <SolidColorBrush x:Key="DangerBrush"        Color="#E05470"/>
-        <SolidColorBrush x:Key="DangerHoverBrush"   Color="#C03D5A"/>
-        <SolidColorBrush x:Key="DangerPressedBrush" Color="#A02E48"/>
+        <!-- State colours -->
+        <SolidColorBrush x:Key="SuccessBrush"       Color="#4ADE80"/>
+        <SolidColorBrush x:Key="WarningBrush"       Color="#FBBF24"/>
+
+        <!-- Danger (red) — updated to spec #F87171 -->
+        <SolidColorBrush x:Key="DangerBrush"        Color="#F87171"/>
+        <SolidColorBrush x:Key="DangerHoverBrush"   Color="#DC5555"/>
+        <SolidColorBrush x:Key="DangerPressedBrush" Color="#C03A3A"/>
         <SolidColorBrush x:Key="DangerDimBrush"     Color="#2C1520"/>
 
         <!-- Borders -->
         <SolidColorBrush x:Key="BorderBrush"        Color="#38385A"/>
         <SolidColorBrush x:Key="BorderSubtleBrush"  Color="#28283E"/>
 
-        <!-- Text -->
-        <SolidColorBrush x:Key="TextBrightBrush"    Color="#EEEEFF"/>
-        <SolidColorBrush x:Key="TextPrimaryBrush"   Color="#A8A8C8"/>
+        <!-- Text — spec: Primary #FFFFFF, Secondary #A0A0B8 -->
+        <SolidColorBrush x:Key="TextBrightBrush"    Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush"   Color="#A0A0B8"/>
         <SolidColorBrush x:Key="TextMutedBrush"     Color="#5A5A7A"/>
         <SolidColorBrush x:Key="TextDisabledBrush"  Color="#38385A"/>
 
@@ -57,7 +61,6 @@
             </Setter>
         </Style>
 
-        <!-- Invisible repeat-button fills the track page area -->
         <Style x:Key="ScrollBarPageStyle" TargetType="{x:Type RepeatButton}">
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="IsTabStop"             Value="False"/>
@@ -71,7 +74,6 @@
             </Setter>
         </Style>
 
-        <!-- Implicit style applied to every vertical ScrollBar in the app -->
         <Style TargetType="{x:Type ScrollBar}">
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="SnapsToDevicePixels"   Value="True"/>
@@ -109,6 +111,15 @@
         <!-- BUTTON STYLES                                                     -->
         <!-- ================================================================ -->
 
+        <!--
+            Hover animation pattern used by all three button styles:
+            A semi-transparent white Border (HoverOverlay, Opacity=0) is placed
+            behind the ContentPresenter.  IsMouseOver EnterActions animate its
+            opacity to 0.12 (brightness tint); ExitActions fade it back to 0.
+            This is independent of the Background TemplateBinding, so
+            IsEnabled/IsPressed Setters on Background continue to work correctly.
+        -->
+
         <!-- Primary — accent blue, used for main actions -->
         <Style x:Key="PrimaryButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="FontFamily"      Value="Segoe UI"/>
@@ -126,13 +137,41 @@
                                 Background="{TemplateBinding Background}"
                                 CornerRadius="6"
                                 Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
+                            <Grid>
+                                <!-- Hover brightness overlay -->
+                                <Border x:Name="HoverOverlay"
+                                        Background="White"
+                                        CornerRadius="6"
+                                        Opacity="0"
+                                        IsHitTestVisible="False"/>
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Root" Property="Background"
                                         Value="{StaticResource AccentHoverBrush}"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation
+                                                Storyboard.TargetName="HoverOverlay"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="0.12" Duration="0:0:0.12"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation
+                                                Storyboard.TargetName="HoverOverlay"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="0" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Root" Property="Background"
@@ -167,13 +206,40 @@
                                 Background="{TemplateBinding Background}"
                                 CornerRadius="6"
                                 Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
+                            <Grid>
+                                <Border x:Name="HoverOverlay"
+                                        Background="White"
+                                        CornerRadius="6"
+                                        Opacity="0"
+                                        IsHitTestVisible="False"/>
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Root" Property="Background"
                                         Value="{StaticResource DangerHoverBrush}"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation
+                                                Storyboard.TargetName="HoverOverlay"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="0.12" Duration="0:0:0.12"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation
+                                                Storyboard.TargetName="HoverOverlay"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="0" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Root" Property="Background"
@@ -210,8 +276,15 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="5"
                                 Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
+                            <Grid>
+                                <Border x:Name="HoverOverlay"
+                                        Background="White"
+                                        CornerRadius="5"
+                                        Opacity="0"
+                                        IsHitTestVisible="False"/>
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -221,6 +294,26 @@
                                         Value="{StaticResource AccentBrush}"/>
                                 <Setter Property="Foreground"
                                         Value="{StaticResource TextBrightBrush}"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation
+                                                Storyboard.TargetName="HoverOverlay"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="0.10" Duration="0:0:0.12"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation
+                                                Storyboard.TargetName="HoverOverlay"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="0" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Root" Property="Background"
@@ -257,7 +350,6 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- Tick box -->
                             <Border x:Name="CheckBorder"
                                     Grid.Column="0"
                                     Width="16" Height="16"
@@ -276,7 +368,6 @@
                                       Visibility="Collapsed"/>
                             </Border>
 
-                            <!-- Label -->
                             <ContentPresenter Grid.Column="1"
                                               Margin="8,0,0,0"
                                               VerticalAlignment="Center"
@@ -315,7 +406,6 @@
         <!-- LISTBOX STYLES                                                    -->
         <!-- ================================================================ -->
 
-        <!-- Container: rounded border, dark background, no horizontal scroll -->
         <Style x:Key="CityListBoxStyle" TargetType="{x:Type ListBox}">
             <Setter Property="Background"      Value="{StaticResource BgListBrush}"/>
             <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush}"/>
@@ -340,7 +430,6 @@
             </Setter>
         </Style>
 
-        <!-- Item: hover highlight only, no WPF selection chrome -->
         <Style x:Key="CityListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
             <Setter Property="Padding"                    Value="6,4"/>
             <Setter Property="Margin"                     Value="0,1"/>
@@ -367,23 +456,65 @@
         </Style>
 
         <!-- ================================================================ -->
-        <!-- PROGRESS BAR — slim, rounded, accent-coloured fill               -->
+        <!-- PROGRESS BAR — slim, rounded, accent fill + IsIndeterminate      -->
         <!-- ================================================================ -->
 
         <Style x:Key="SlimProgressBarStyle" TargetType="{x:Type ProgressBar}">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type ProgressBar}">
+                        <!--
+                            PART_Track is the outer container; WPF reads its ActualWidth to
+                            compute PART_Indicator.Width automatically.
+                            ClipToBounds clips the sliding indeterminate bar at the edges.
+                        -->
                         <Border x:Name="PART_Track"
                                 Background="#22223A"
                                 BorderBrush="{StaticResource BorderSubtleBrush}"
                                 BorderThickness="1"
-                                CornerRadius="3">
-                            <Border x:Name="PART_Indicator"
-                                    Background="{StaticResource AccentBrush}"
-                                    HorizontalAlignment="Left"
-                                    CornerRadius="3"/>
+                                CornerRadius="3"
+                                ClipToBounds="True">
+                            <Grid>
+                                <!-- Determinate fill (width set by WPF based on Value/Maximum) -->
+                                <Border x:Name="PART_Indicator"
+                                        Background="{StaticResource AccentBrush}"
+                                        HorizontalAlignment="Left"
+                                        CornerRadius="3"/>
+
+                                <!-- Indeterminate slider bar (hidden by default) -->
+                                <Border x:Name="IndeterminateBg"
+                                        Background="{StaticResource AccentBrush}"
+                                        CornerRadius="3"
+                                        Width="90"
+                                        HorizontalAlignment="Left"
+                                        Visibility="Collapsed">
+                                    <Border.RenderTransform>
+                                        <TranslateTransform x:Name="IndeterminateTX" X="-90"/>
+                                    </Border.RenderTransform>
+                                </Border>
+                            </Grid>
                         </Border>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsIndeterminate" Value="True">
+                                <Setter TargetName="PART_Indicator" Property="Visibility"
+                                        Value="Collapsed"/>
+                                <Setter TargetName="IndeterminateBg" Property="Visibility"
+                                        Value="Visible"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation
+                                                Storyboard.TargetName="IndeterminateTX"
+                                                Storyboard.TargetProperty="X"
+                                                From="-90" To="350"
+                                                Duration="0:0:1.4"
+                                                RepeatBehavior="Forever"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -393,15 +524,6 @@
         <!-- RESULTS EXPANDER — dark themed, collapsible results panel        -->
         <!-- ================================================================ -->
 
-        <!--
-            Custom ControlTemplate for the collapsible results panel.
-            Structure:
-              DockPanel
-               ├─ ToggleButton (header, docked top)  — click anywhere to expand/collapse
-               │    Content = Expander.Header (via TemplateBinding)
-               │    Renders via its own ControlTemplate: hover bg + ▼/▲ arrow
-               └─ ContentPresenter (body)             — hidden when IsExpanded = false
-        -->
         <Style x:Key="ResultsExpanderStyle" TargetType="{x:Type Expander}">
             <Setter Property="Background"      Value="#1A1A2C"/>
             <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush}"/>
@@ -414,7 +536,6 @@
                                 BorderThickness="{TemplateBinding BorderThickness}">
                             <DockPanel LastChildFill="True">
 
-                                <!-- ── Header toggle button ──────────────── -->
                                 <ToggleButton DockPanel.Dock="Top"
                                               x:Name="HeaderToggle"
                                               Content="{TemplateBinding Header}"
@@ -431,7 +552,6 @@
                                                     Background="{TemplateBinding Background}"
                                                     Cursor="Hand">
                                                 <DockPanel>
-                                                    <!-- Expand / collapse arrow -->
                                                     <TextBlock x:Name="Arrow"
                                                                DockPanel.Dock="Right"
                                                                Text="▼"
@@ -439,7 +559,6 @@
                                                                Foreground="#55556E"
                                                                VerticalAlignment="Center"
                                                                Margin="0,0,16,0"/>
-                                                    <!-- Header content (set by Expander.Header) -->
                                                     <ContentPresenter VerticalAlignment="Center"/>
                                                 </DockPanel>
                                             </Border>
@@ -448,7 +567,6 @@
                                                     <Setter TargetName="HdrBg" Property="Background"
                                                             Value="{StaticResource BgHoverBrush}"/>
                                                 </Trigger>
-                                                <!-- Arrow flips when checked (expanded) -->
                                                 <Trigger Property="IsChecked" Value="True">
                                                     <Setter TargetName="Arrow" Property="Text" Value="▲"/>
                                                     <Setter TargetName="Arrow" Property="Foreground"
@@ -459,7 +577,6 @@
                                     </ToggleButton.Template>
                                 </ToggleButton>
 
-                                <!-- ── Collapsible body ──────────────────── -->
                                 <ContentPresenter x:Name="Body" Visibility="Collapsed"/>
 
                             </DockPanel>

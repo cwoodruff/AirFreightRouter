@@ -233,13 +233,16 @@ public partial class RouteMapControl : UserControl
     // Core drawing
     // ------------------------------------------------------------------
 
-    private readonly MapRenderer      _renderer     = new();
-    private readonly List<UIElement>  _routeElements = [];
+    private readonly MapRenderer      _renderer        = new();
+    private readonly List<UIElement>  _routeElements   = [];
+    private readonly List<Ellipse>    _cityDotElements = [];
+    private          bool             _hadCities;
 
     private void Redraw()
     {
         MapCanvas.Children.Clear();
         _routeElements.Clear();
+        _cityDotElements.Clear();
 
         double w = MapCanvas.ActualWidth;
         double h = MapCanvas.ActualHeight;
@@ -249,9 +252,13 @@ public partial class RouteMapControl : UserControl
         var cities = Cities;
         if (cities == null || cities.Count == 0)
         {
+            _hadCities = false;
             DrawEmptyPlaceholder(w, h);
             return;
         }
+
+        bool isFirstLoad = !_hadCities;
+        _hadCities = true;
 
         _renderer.Initialise(cities, w, h);
 
@@ -259,6 +266,11 @@ public partial class RouteMapControl : UserControl
         DrawRoute();
         DrawCityDots(cities);
         DrawLabels(cities, w, h);
+
+        if (isFirstLoad)
+            PlayFadeIn();
+        if (IsRouteInProgress)
+            StartDotPulse();
     }
 
     // ------------------------------------------------------------------
@@ -376,13 +388,21 @@ public partial class RouteMapControl : UserControl
             bool isOrigin = IsOriginCity(city, origin);
 
             AddEllipse(pt, DotGlowRadius, isOrigin ? BrushOriginGlow : BrushCityGlow);
-            AddEllipse(pt, DotRadius,     isOrigin ? BrushOrigin     : BrushCity);
+            AddEllipse(pt, DotRadius,     isOrigin ? BrushOrigin     : BrushCity, trackAsDot: true);
         }
     }
 
-    private void AddEllipse(Point centre, double radius, Brush fill)
+    private void AddEllipse(Point centre, double radius, Brush fill, bool trackAsDot = false)
     {
         var e = new Ellipse { Width = radius * 2, Height = radius * 2, Fill = fill };
+
+        if (trackAsDot)
+        {
+            e.RenderTransformOrigin = new Point(0.5, 0.5);
+            e.RenderTransform       = new ScaleTransform(1.0, 1.0);
+            _cityDotElements.Add(e);
+        }
+
         Canvas.SetLeft(e, centre.X - radius);
         Canvas.SetTop (e, centre.Y - radius);
         MapCanvas.Children.Add(e);
@@ -451,6 +471,62 @@ public partial class RouteMapControl : UserControl
     // ------------------------------------------------------------------
     // Animations
     // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Fades the map canvas from transparent to fully opaque over 400 ms,
+    /// used when cities are displayed for the first time.
+    /// </summary>
+    private void PlayFadeIn()
+    {
+        MapCanvas.Opacity = 0;
+        var anim = new DoubleAnimation
+        {
+            From           = 0.0,
+            To             = 1.0,
+            Duration       = TimeSpan.FromMilliseconds(400),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        MapCanvas.BeginAnimation(OpacityProperty, anim);
+    }
+
+    /// <summary>
+    /// Starts a subtle scale-pulse on every tracked inner city dot
+    /// (1.0 ↔ 1.18, SineEase, 1.5 s, auto-reverse, forever).
+    /// </summary>
+    private void StartDotPulse()
+    {
+        foreach (var dot in _cityDotElements)
+        {
+            if (dot.RenderTransform is not ScaleTransform st) continue;
+
+            var anim = new DoubleAnimation
+            {
+                From           = 1.0,
+                To             = 1.18,
+                Duration       = TimeSpan.FromMilliseconds(1500),
+                AutoReverse    = true,
+                RepeatBehavior = RepeatBehavior.Forever,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            };
+
+            st.BeginAnimation(ScaleTransform.ScaleXProperty, anim);
+            st.BeginAnimation(ScaleTransform.ScaleYProperty, anim.Clone());
+        }
+    }
+
+    /// <summary>
+    /// Stops any running pulse animations on tracked city dots and resets
+    /// their scale to 1.0.
+    /// </summary>
+    private void StopDotPulse()
+    {
+        foreach (var dot in _cityDotElements)
+        {
+            if (dot.RenderTransform is not ScaleTransform st) continue;
+            st.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            st.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        }
+    }
 
     /// <summary>
     /// Starts a repeating <c>StrokeDashOffset</c> animation on
