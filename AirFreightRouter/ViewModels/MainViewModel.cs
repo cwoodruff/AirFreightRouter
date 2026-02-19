@@ -60,6 +60,7 @@ public partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ResultDistanceDisplay))]
     [NotifyPropertyChangedFor(nameof(ResultPermutationsDisplay))]
     [NotifyPropertyChangedFor(nameof(ResultElapsedDisplay))]
+    [NotifyPropertyChangedFor(nameof(MapRoute))]
     private RouteResult? _currentResult;
 
     /// <summary>
@@ -159,6 +160,29 @@ public partial class MainViewModel : ObservableObject
     public string SelectionSummary =>
         $"{SelectedCities.Count} of {AvailableCities.Count} cities selected";
 
+    /// <summary>
+    /// Gets all cities for map display: the fixed origin followed by every
+    /// city currently loaded from the CSV file.
+    /// </summary>
+    public IList<City> MapCities
+    {
+        get
+        {
+            var list = new List<City> { _origin };
+            list.AddRange(AvailableCities.Select(w => w.City));
+            return list;
+        }
+    }
+
+    /// <summary>Gets the fixed origin city passed to the map control.</summary>
+    public City MapOrigin => _origin;
+
+    /// <summary>
+    /// Gets the ordered route from the most recent computation, or
+    /// <see langword="null"/> when no route has been computed yet.
+    /// </summary>
+    public IList<City>? MapRoute => CurrentResult?.Route;
+
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
@@ -225,6 +249,7 @@ public partial class MainViewModel : ObservableObject
             ProgressPercent    = 0;
             ElapsedTimeDisplay = "00:00:00";
             OnPropertyChanged(nameof(SelectionSummary));
+            OnPropertyChanged(nameof(MapCities));
 
             StatusMessage =
                 $"Loaded {AvailableCities.Count} cities from \"{Path.GetFileName(dialog.FileName)}\". " +
