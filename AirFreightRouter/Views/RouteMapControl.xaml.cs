@@ -3,6 +3,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using AirFreightRouter.Models;
 using AirFreightRouter.Services;
@@ -10,24 +11,25 @@ using AirFreightRouter.Services;
 namespace AirFreightRouter.Views;
 
 /// <summary>
-/// A Canvas-based UserControl that renders a 2-D map of cities and the
-/// computed air-freight route using an equirectangular projection.
+/// Canvas-based UserControl that renders a 2-D air-freight route map with
+/// live in-progress updates, a marching-ants animation while computing, a
+/// completion flash, and a semi-transparent info overlay.
 /// </summary>
 /// <remarks>
 /// Drawing layers (bottom-to-top):
 /// <list type="number">
 ///   <item>Grid lines</item>
-///   <item>Route polyline (glow + solid) and dashed return leg</item>
+///   <item>Route polyline (glow + main) and dashed return leg</item>
 ///   <item>City dots (glow + solid fill)</item>
 ///   <item>City name labels</item>
 /// </list>
-/// All brushes are created once as static frozen resources to avoid
-/// per-frame allocations.
+/// References to route-layer elements are kept in <see cref="_routeElements"/>
+/// so the completion flash can be applied without a full redraw.
 /// </remarks>
 public partial class RouteMapControl : UserControl
 {
     // ------------------------------------------------------------------
-    // Static brushes (frozen for rendering performance)
+    // Static frozen brushes (allocated once; frozen for rendering perf)
     // ------------------------------------------------------------------
 
     private static readonly SolidColorBrush BrushGrid =
@@ -60,17 +62,25 @@ public partial class RouteMapControl : UserControl
     private static readonly SolidColorBrush BrushLabelOrigin =
         Freeze(new SolidColorBrush(Color.FromRgb(0xFF, 0xE0, 0x60)));   // warm gold
 
+    /// <summary>
+    /// Dash pattern used for the return-leg line and for in-progress routes.
+    /// Total period = 10 + 6 = 16 px (used as the animation To value).
+    /// </summary>
     private static readonly DoubleCollection DashPattern =
-        Freeze(new DoubleCollection([6, 4]));
+        Freeze(new DoubleCollection([10, 6]));
 
-    // Dot sizes
-    private const double DotRadius      = 8.0;
-    private const double DotGlowRadius  = 14.0;
-    private const double LabelOffset    = 12.0;
-    private const double LabelFontSize  = 10.5;
+    // Geometry constants
+    private const double DotRadius     = 8.0;
+    private const double DotGlowRadius = 14.0;
+    private const double LabelOffset   = 12.0;
+    private const double LabelFontSize = 10.5;
+    private const int    GridLines     = 6;
 
-    // Grid divisions
-    private const int GridLines = 6;
+    // Animation constants
+    private const double MarchingAntsPeriodPx = 16.0;   // dashLen + gapLen
+    private const double MarchingAntsDuration = 0.7;    // seconds per period
+    private const double FlashFromOpacity     = 0.35;
+    private const double FlashDurationMs      = 300.0;
 
     // ------------------------------------------------------------------
     // Dependency Properties
@@ -83,8 +93,9 @@ public partial class RouteMapControl : UserControl
             new FrameworkPropertyMetadata(null, OnMapDataChanged));
 
     /// <summary>
-    /// The computed route as an ordered list starting and ending with the
-    /// origin city, e.g. [Albany, Boston, …, Albany].
+    /// The route as an ordered list [origin, c1, …, cN, origin].
+    /// Updated in real-time during computation and set to the final optimal
+    /// route on completion.
     /// </summary>
     public static readonly DependencyProperty RouteProperty =
         DependencyProperty.Register(
@@ -97,6 +108,36 @@ public partial class RouteMapControl : UserControl
             nameof(Origin), typeof(City), typeof(RouteMapControl),
             new FrameworkPropertyMetadata(null, OnMapDataChanged));
 
+    /// <summary>
+    /// When <see langword="true"/> the route is rendered with a dashed,
+    /// animated (marching-ants) style to indicate in-progress computation.
+    /// Setting this to <see langword="false"/> switches to a solid style
+    /// and, if a route exists, plays the completion flash.
+    /// </summary>
+    public static readonly DependencyProperty IsRouteInProgressProperty =
+        DependencyProperty.Register(
+            nameof(IsRouteInProgress), typeof(bool), typeof(RouteMapControl),
+            new FrameworkPropertyMetadata(false, OnIsRouteInProgressChanged));
+
+    /// <summary>
+    /// One-line status shown in the map overlay:
+    /// "Computing…", "Complete", or "Cancelled (partial)".
+    /// </summary>
+    public static readonly DependencyProperty RouteStatusTextProperty =
+        DependencyProperty.Register(
+            nameof(RouteStatusText), typeof(string), typeof(RouteMapControl),
+            new FrameworkPropertyMetadata(string.Empty, OnOverlayDataChanged));
+
+    /// <summary>
+    /// Best distance found so far, e.g. "12.3456°".  Displayed in the
+    /// map overlay during and after computation.
+    /// </summary>
+    public static readonly DependencyProperty BestDistanceTextProperty =
+        DependencyProperty.Register(
+            nameof(BestDistanceText), typeof(string), typeof(RouteMapControl),
+            new FrameworkPropertyMetadata(string.Empty, OnOverlayDataChanged));
+
+    // CLR wrappers
     public IList<City>? Cities
     {
         get => (IList<City>?)GetValue(CitiesProperty);
@@ -115,6 +156,24 @@ public partial class RouteMapControl : UserControl
         set => SetValue(OriginProperty, value);
     }
 
+    public bool IsRouteInProgress
+    {
+        get => (bool)GetValue(IsRouteInProgressProperty);
+        set => SetValue(IsRouteInProgressProperty, value);
+    }
+
+    public string RouteStatusText
+    {
+        get => (string)GetValue(RouteStatusTextProperty);
+        set => SetValue(RouteStatusTextProperty, value);
+    }
+
+    public string BestDistanceText
+    {
+        get => (string)GetValue(BestDistanceTextProperty);
+        set => SetValue(BestDistanceTextProperty, value);
+    }
+
     // ------------------------------------------------------------------
     // Constructor
     // ------------------------------------------------------------------
@@ -125,12 +184,40 @@ public partial class RouteMapControl : UserControl
     }
 
     // ------------------------------------------------------------------
-    // Dependency-property change callback
+    // Dependency-property callbacks
     // ------------------------------------------------------------------
 
     private static void OnMapDataChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        ((RouteMapControl)d).Redraw();
+        var ctrl = (RouteMapControl)d;
+        ctrl.Redraw();
+        ctrl.UpdateOverlay();
+    }
+
+    private static void OnIsRouteInProgressChanged(
+        DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var ctrl          = (RouteMapControl)d;
+        bool wasInProgress = (bool)e.OldValue;
+        bool nowInProgress = (bool)e.NewValue;
+
+        ctrl.Redraw();
+        ctrl.UpdateOverlay();
+
+        // Play the completion flash when transitioning computing → complete
+        // (but not when cancelled, which leaves a partial route).
+        if (wasInProgress && !nowInProgress
+            && ctrl._routeElements.Count > 0
+            && ctrl.RouteStatusText == "Complete")
+        {
+            ctrl.PlayCompletionFlash();
+        }
+    }
+
+    private static void OnOverlayDataChanged(
+        DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        ((RouteMapControl)d).UpdateOverlay();
     }
 
     // ------------------------------------------------------------------
@@ -146,16 +233,17 @@ public partial class RouteMapControl : UserControl
     // Core drawing
     // ------------------------------------------------------------------
 
-    private readonly MapRenderer _renderer = new();
+    private readonly MapRenderer      _renderer     = new();
+    private readonly List<UIElement>  _routeElements = [];
 
     private void Redraw()
     {
         MapCanvas.Children.Clear();
+        _routeElements.Clear();
 
         double w = MapCanvas.ActualWidth;
         double h = MapCanvas.ActualHeight;
 
-        // Skip rendering if the canvas has no size yet.
         if (w < 10 || h < 10) return;
 
         var cities = Cities;
@@ -168,7 +256,7 @@ public partial class RouteMapControl : UserControl
         _renderer.Initialise(cities, w, h);
 
         DrawGrid(w, h);
-        DrawRoute(cities);
+        DrawRoute();
         DrawCityDots(cities);
         DrawLabels(cities, w, h);
     }
@@ -179,10 +267,10 @@ public partial class RouteMapControl : UserControl
 
     private void DrawGrid(double w, double h)
     {
-        double step = w / (GridLines + 1);
+        double xStep = w / (GridLines + 1);
         for (int i = 1; i <= GridLines; i++)
         {
-            double x = i * step;
+            double x = i * xStep;
             MapCanvas.Children.Add(new Line
             {
                 X1 = x, Y1 = 0, X2 = x, Y2 = h,
@@ -190,10 +278,10 @@ public partial class RouteMapControl : UserControl
             });
         }
 
-        step = h / (GridLines + 1);
+        double yStep = h / (GridLines + 1);
         for (int i = 1; i <= GridLines; i++)
         {
-            double y = i * step;
+            double y = i * yStep;
             MapCanvas.Children.Add(new Line
             {
                 X1 = 0, Y1 = y, X2 = w, Y2 = y,
@@ -203,59 +291,75 @@ public partial class RouteMapControl : UserControl
     }
 
     // ------------------------------------------------------------------
-    // Layer 2 · Route polylines
+    // Layer 2 · Route
     // ------------------------------------------------------------------
 
-    private void DrawRoute(IList<City> cities)
+    private void DrawRoute()
     {
         var route = Route;
         if (route == null || route.Count < 2) return;
 
-        // Route = [origin, c1, c2, …, cN, origin].
-        // Solid leg: origin → c1 → … → cN  (all segments except the last).
-        // Dashed leg: cN → origin (the return flight).
+        int  n           = route.Count;
+        bool inProgress  = IsRouteInProgress;
 
-        int n = route.Count;
+        // Route = [origin, c1, …, cN, origin]
+        // Outbound leg: points 0 … n-2  (all but the last)
+        // Return leg:   point n-2 → n-1 (last city back to origin)
 
-        // --- solid polyline (glow layer) ---
+        // --- glow layer (always non-dashed) ---
         var glowPoints = new PointCollection();
         for (int k = 0; k < n - 1; k++)
             glowPoints.Add(_renderer.Project(route[k]));
 
-        MapCanvas.Children.Add(new Polyline
+        var glowLine = new Polyline
         {
-            Points          = glowPoints,
-            Stroke          = BrushRouteGlow,
-            StrokeThickness = 8,
-            StrokeLineJoin  = PenLineJoin.Round,
+            Points             = glowPoints,
+            Stroke             = BrushRouteGlow,
+            StrokeThickness    = inProgress ? 10 : 8,
+            StrokeLineJoin     = PenLineJoin.Round,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap   = PenLineCap.Round,
+            Opacity            = inProgress ? 0.55 : 1.0
+        };
+        MapCanvas.Children.Add(glowLine);
+        _routeElements.Add(glowLine);
+
+        // --- main outbound polyline ---
+        var mainPoints = new PointCollection(glowPoints);
+        var mainLine   = new Polyline
+        {
+            Points             = mainPoints,
+            Stroke             = BrushRoute,
+            StrokeThickness    = 2,
+            StrokeLineJoin     = PenLineJoin.Round,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap   = PenLineCap.Round
-        });
+        };
 
-        // --- solid polyline (main layer) ---
-        var solidPoints = new PointCollection(glowPoints);   // same points
-        MapCanvas.Children.Add(new Polyline
+        if (inProgress)
         {
-            Points          = solidPoints,
-            Stroke          = BrushRoute,
-            StrokeThickness = 2,
-            StrokeLineJoin  = PenLineJoin.Round,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap   = PenLineCap.Round
-        });
+            // Apply dash pattern for the marching-ants animation.
+            mainLine.StrokeDashArray = DashPattern;
+            StartMarchingAnts(mainLine);
+        }
 
-        // --- dashed return leg: route[n-2] → route[n-1] ---
-        var p1 = _renderer.Project(route[n - 2]);
-        var p2 = _renderer.Project(route[n - 1]);
+        MapCanvas.Children.Add(mainLine);
+        _routeElements.Add(mainLine);
 
-        MapCanvas.Children.Add(new Line
+        // --- return leg (always dashed, static) ---
+        var p1       = _renderer.Project(route[n - 2]);
+        var p2       = _renderer.Project(route[n - 1]);
+        var returnLeg = new Line
         {
             X1 = p1.X, Y1 = p1.Y, X2 = p2.X, Y2 = p2.Y,
-            Stroke = BrushDash,
-            StrokeThickness = 2,
+            Stroke          = BrushDash,
+            StrokeThickness = inProgress ? 1.5 : 2,
             StrokeDashArray = DashPattern,
-            StrokeDashCap   = PenLineCap.Round
-        });
+            StrokeDashCap   = PenLineCap.Round,
+            Opacity         = inProgress ? 0.60 : 1.0
+        };
+        MapCanvas.Children.Add(returnLeg);
+        _routeElements.Add(returnLeg);
     }
 
     // ------------------------------------------------------------------
@@ -268,29 +372,17 @@ public partial class RouteMapControl : UserControl
 
         foreach (var city in cities.Distinct())
         {
-            var pt         = _renderer.Project(city);
-            bool isOrigin  = origin != null &&
-                             string.Equals(city.Name,  origin.Name,  StringComparison.OrdinalIgnoreCase) &&
-                             string.Equals(city.State, origin.State, StringComparison.OrdinalIgnoreCase);
+            var  pt       = _renderer.Project(city);
+            bool isOrigin = IsOriginCity(city, origin);
 
-            var glowBrush  = isOrigin ? BrushOriginGlow : BrushCityGlow;
-            var dotBrush   = isOrigin ? BrushOrigin     : BrushCity;
-
-            // Glow ellipse
-            AddEllipse(pt, DotGlowRadius, glowBrush);
-            // Solid dot
-            AddEllipse(pt, DotRadius, dotBrush);
+            AddEllipse(pt, DotGlowRadius, isOrigin ? BrushOriginGlow : BrushCityGlow);
+            AddEllipse(pt, DotRadius,     isOrigin ? BrushOrigin     : BrushCity);
         }
     }
 
-    private void AddEllipse(System.Windows.Point centre, double radius, Brush fill)
+    private void AddEllipse(Point centre, double radius, Brush fill)
     {
-        var e = new Ellipse
-        {
-            Width  = radius * 2,
-            Height = radius * 2,
-            Fill   = fill
-        };
+        var e = new Ellipse { Width = radius * 2, Height = radius * 2, Fill = fill };
         Canvas.SetLeft(e, centre.X - radius);
         Canvas.SetTop (e, centre.Y - radius);
         MapCanvas.Children.Add(e);
@@ -306,15 +398,12 @@ public partial class RouteMapControl : UserControl
 
         foreach (var city in cities.Distinct())
         {
-            var pt        = _renderer.Project(city);
-            bool isOrigin = origin != null &&
-                            string.Equals(city.Name,  origin.Name,  StringComparison.OrdinalIgnoreCase) &&
-                            string.Equals(city.State, origin.State, StringComparison.OrdinalIgnoreCase);
+            var  pt       = _renderer.Project(city);
+            bool isOrigin = IsOriginCity(city, origin);
 
-            // Position label to avoid clipping: favour right/below but flip
-            // when close to the right or bottom edge.
-            double xOffset = pt.X > canvasWidth  - 80 ? -LabelOffset - 50 : LabelOffset;
-            double yOffset = pt.Y > canvasHeight - 30 ? -LabelOffset - 14 : LabelOffset;
+            // Flip label position near right/bottom canvas edges to avoid clipping.
+            double xOffset = pt.X > canvasWidth  - 80 ? -(LabelOffset + 50) : LabelOffset;
+            double yOffset = pt.Y > canvasHeight - 30 ? -(LabelOffset + 14) : LabelOffset;
 
             var tb = new TextBlock
             {
@@ -332,6 +421,73 @@ public partial class RouteMapControl : UserControl
     }
 
     // ------------------------------------------------------------------
+    // Info overlay
+    // ------------------------------------------------------------------
+
+    private void UpdateOverlay()
+    {
+        string status   = RouteStatusText;
+        string distance = BestDistanceText;
+        var    route    = Route;
+
+        // Hide the overlay when there is nothing to show.
+        if (string.IsNullOrEmpty(status) && string.IsNullOrEmpty(distance))
+        {
+            InfoOverlay.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        TbStatus.Text   = status;
+        TbDistance.Text = string.IsNullOrEmpty(distance)
+            ? string.Empty
+            : $"Best distance: {distance}";
+        TbCities.Text   = route is { Count: > 2 }
+            ? $"Cities in route: {route.Count - 2}"
+            : string.Empty;
+
+        InfoOverlay.Visibility = Visibility.Visible;
+    }
+
+    // ------------------------------------------------------------------
+    // Animations
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Starts a repeating <c>StrokeDashOffset</c> animation on
+    /// <paramref name="shape"/> to produce the marching-ants effect.
+    /// </summary>
+    private static void StartMarchingAnts(Shape shape)
+    {
+        var anim = new DoubleAnimation
+        {
+            From             = 0,
+            To               = MarchingAntsPeriodPx,
+            Duration         = TimeSpan.FromSeconds(MarchingAntsDuration),
+            RepeatBehavior   = RepeatBehavior.Forever,
+            EasingFunction   = null   // linear — constant apparent speed
+        };
+        shape.BeginAnimation(Shape.StrokeDashOffsetProperty, anim);
+    }
+
+    /// <summary>
+    /// Plays a brief opacity flash on all route elements to celebrate a
+    /// successful computation.
+    /// </summary>
+    private void PlayCompletionFlash()
+    {
+        var anim = new DoubleAnimation
+        {
+            From           = FlashFromOpacity,
+            To             = 1.0,
+            Duration       = TimeSpan.FromMilliseconds(FlashDurationMs),
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+
+        foreach (var elem in _routeElements)
+            elem.BeginAnimation(OpacityProperty, anim);
+    }
+
+    // ------------------------------------------------------------------
     // Empty-state placeholder
     // ------------------------------------------------------------------
 
@@ -341,8 +497,7 @@ public partial class RouteMapControl : UserControl
         {
             Text       = "Load city data to see the map",
             FontSize   = 14,
-            Foreground = new SolidColorBrush(Color.FromArgb(0x60, 0xFF, 0xFF, 0xFF)),
-            HorizontalAlignment = HorizontalAlignment.Center
+            Foreground = new SolidColorBrush(Color.FromArgb(0x60, 0xFF, 0xFF, 0xFF))
         };
         tb.Measure(new Size(w, h));
         Canvas.SetLeft(tb, (w - tb.DesiredSize.Width)  / 2);
@@ -351,8 +506,13 @@ public partial class RouteMapControl : UserControl
     }
 
     // ------------------------------------------------------------------
-    // Helper
+    // Helpers
     // ------------------------------------------------------------------
+
+    private static bool IsOriginCity(City city, City? origin) =>
+        origin is not null &&
+        string.Equals(city.Name,  origin.Name,  StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(city.State, origin.State, StringComparison.OrdinalIgnoreCase);
 
     private static T Freeze<T>(T freezable) where T : Freezable
     {

@@ -28,6 +28,13 @@ public partial class MainViewModel : ObservableObject
     private DispatcherTimer?          _elapsedTimer;
     private DateTime                  _computationStartedAt;
 
+    /// <summary>
+    /// Tracks the last time a live map-route update was pushed to
+    /// <see cref="MapRoute"/> so that we can throttle redraws.
+    /// </summary>
+    private DateTime _lastMapRouteUpdateAt = DateTime.MinValue;
+    private const double MapRouteThrottleMs = 500.0;
+
     // -------------------------------------------------------------------------
     // Collections (read-only references; contents change via Add / Clear)
     // -------------------------------------------------------------------------
@@ -60,7 +67,6 @@ public partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ResultDistanceDisplay))]
     [NotifyPropertyChangedFor(nameof(ResultPermutationsDisplay))]
     [NotifyPropertyChangedFor(nameof(ResultElapsedDisplay))]
-    [NotifyPropertyChangedFor(nameof(MapRoute))]
     private RouteResult? _currentResult;
 
     /// <summary>
@@ -106,6 +112,32 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     private string _elapsedTimeDisplay = "00:00:00";
+
+    // ---- Map-specific observable properties ----------------------------------
+
+    /// <summary>
+    /// Gets the route currently displayed on the map.  Updated in real-time
+    /// (at most every 500 ms) while a computation is running; set to the
+    /// final optimal route on completion; retained as the last partial route
+    /// when the user cancels.
+    /// </summary>
+    [ObservableProperty]
+    private IList<City>? _mapRoute;
+
+    /// <summary>
+    /// Gets the one-line status label shown in the map overlay:
+    /// "Computing…", "Complete", or "Cancelled (partial)".
+    /// </summary>
+    [ObservableProperty]
+    private string _mapRouteStatusText = string.Empty;
+
+    /// <summary>
+    /// Gets the best distance found so far, formatted as "X.XXXX°", for
+    /// display in the map overlay while a computation is running or after
+    /// it completes.
+    /// </summary>
+    [ObservableProperty]
+    private string _mapBestDistanceText = string.Empty;
 
     // -------------------------------------------------------------------------
     // Computed display properties (no backing field — raised manually)
@@ -177,12 +209,6 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Gets the fixed origin city passed to the map control.</summary>
     public City MapOrigin => _origin;
 
-    /// <summary>
-    /// Gets the ordered route from the most recent computation, or
-    /// <see langword="null"/> when no route has been computed yet.
-    /// </summary>
-    public IList<City>? MapRoute => CurrentResult?.Route;
-
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
@@ -243,11 +269,16 @@ public partial class MainViewModel : ObservableObject
                 AvailableCities.Add(wrapper);
             }
 
-            IsDataLoaded       = true;
-            CurrentResult      = null;
-            CurrentProgress    = null;
-            ProgressPercent    = 0;
-            ElapsedTimeDisplay = "00:00:00";
+            IsDataLoaded          = true;
+            CurrentResult         = null;
+            CurrentProgress       = null;
+            ProgressPercent       = 0;
+            ElapsedTimeDisplay    = "00:00:00";
+            MapRoute              = null;
+            MapRouteStatusText    = string.Empty;
+            MapBestDistanceText   = string.Empty;
+            _lastMapRouteUpdateAt = DateTime.MinValue;
+
             OnPropertyChanged(nameof(SelectionSummary));
             OnPropertyChanged(nameof(MapCities));
 
@@ -274,6 +305,7 @@ public partial class MainViewModel : ObservableObject
     /// background thread. Progress is marshalled back to the UI thread via
     /// <see cref="Progress{T}"/>. A <see cref="DispatcherTimer"/> updates
     /// <see cref="ElapsedTimeDisplay"/> every 100 ms while the solver runs.
+    /// Live map updates are throttled to at most one redraw every 500 ms.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanStartComputation))]
     private async Task StartComputationAsync()
@@ -303,11 +335,15 @@ public partial class MainViewModel : ObservableObject
         }
 
         // --- Initialise state ---
-        IsComputing     = true;
-        CurrentResult   = null;
-        CurrentProgress = null;
-        ProgressPercent = 0;
-        StatusMessage   = "Computing optimal route…";
+        IsComputing           = true;
+        CurrentResult         = null;
+        CurrentProgress       = null;
+        ProgressPercent       = 0;
+        MapRoute              = null;
+        MapRouteStatusText    = "Computing…";
+        MapBestDistanceText   = string.Empty;
+        _lastMapRouteUpdateAt = DateTime.MinValue;
+        StatusMessage         = "Computing optimal route…";
 
         _cts                  = new CancellationTokenSource();
         _computationStartedAt = DateTime.Now;
@@ -333,9 +369,12 @@ public partial class MainViewModel : ObservableObject
 
             if (result is not null)
             {
-                CurrentResult   = result;
-                ProgressPercent = 100;
-                StatusMessage   =
+                CurrentResult       = result;
+                ProgressPercent     = 100;
+                MapRoute            = result.Route;
+                MapRouteStatusText  = "Complete";
+                MapBestDistanceText = $"{result.TotalDistance:F4}°";
+                StatusMessage       =
                     $"Optimal route found!  " +
                     $"Distance: {result.TotalDistance:F4}°  |  " +
                     $"{result.PermutationsEvaluated:N0} permutations evaluated  |  " +
@@ -343,13 +382,17 @@ public partial class MainViewModel : ObservableObject
             }
             else
             {
-                ProgressPercent = 0;
-                StatusMessage   = "Computation cancelled.";
+                // Cancelled — keep MapRoute as the last partial route found;
+                // update status so the map overlay shows the "(partial)" label.
+                ProgressPercent    = 0;
+                MapRouteStatusText = "Cancelled (partial)";
+                StatusMessage      = "Computation cancelled.";
             }
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Unexpected error during computation: {ex.Message}";
+            MapRouteStatusText = string.Empty;
+            StatusMessage      = $"Unexpected error during computation: {ex.Message}";
         }
         finally
         {
@@ -451,6 +494,7 @@ public partial class MainViewModel : ObservableObject
     /// Handles a <see cref="RouteProgressInfo"/> snapshot delivered by the solver.
     /// Always invoked on the UI thread because <see cref="Progress{T}"/> captures
     /// the UI synchronisation context at construction time.
+    /// Map-route updates are throttled: at most one live redraw every 500 ms.
     /// </summary>
     private void OnProgressReceived(RouteProgressInfo info)
     {
@@ -460,6 +504,22 @@ public partial class MainViewModel : ObservableObject
             $"Computing…  {info.PercentComplete:F1}%  |  " +
             $"{info.PermutationsEvaluated:N0} / {info.TotalPermutations:N0} permutations  |  " +
             $"Best so far: {info.CurrentBestDistance:F4}°";
+
+        // Throttle live map updates to ≤ one redraw per 500 ms.
+        var now = DateTime.Now;
+        if ((now - _lastMapRouteUpdateAt).TotalMilliseconds >= MapRouteThrottleMs
+            && info.CurrentBestRoute is { Count: > 0 })
+        {
+            // Wrap the delivery-city permutation with the fixed origin at both ends
+            // to produce the same [origin, c1, …, cN, origin] shape the map expects.
+            var liveRoute = new List<City>(info.CurrentBestRoute.Count + 2) { _origin };
+            liveRoute.AddRange(info.CurrentBestRoute);
+            liveRoute.Add(_origin);
+
+            MapRoute            = liveRoute;
+            MapBestDistanceText = $"{info.CurrentBestDistance:F4}°";
+            _lastMapRouteUpdateAt = now;
+        }
     }
 
     /// <summary>

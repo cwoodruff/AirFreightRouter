@@ -167,7 +167,10 @@
             <views:RouteMapControl
                 Cities="{Binding MapCities}"
                 Route="{Binding MapRoute}"
-                Origin="{Binding MapOrigin}"/>
+                Origin="{Binding MapOrigin}"
+                IsRouteInProgress="{Binding IsComputing}"
+                RouteStatusText="{Binding MapRouteStatusText}"
+                BestDistanceText="{Binding MapBestDistanceText}"/>
 
             <!-- Result overlay — slides in at the top when a route is found -->
             <Border VerticalAlignment="Top"
