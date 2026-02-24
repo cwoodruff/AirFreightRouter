@@ -216,6 +216,7 @@
                     <RowDefinition Height="Auto"/>  <!-- "Available Cities" label -->
                     <RowDefinition Height="*"/>     <!-- City list (fills space) -->
                     <RowDefinition Height="Auto"/>  <!-- X of Y summary -->
+                    <RowDefinition Height="Auto"/>  <!-- Solver selection -->
                     <RowDefinition Height="Auto"/>  <!-- Compute button -->
                     <RowDefinition Height="Auto"/>  <!-- Cancel button -->
                 </Grid.RowDefinitions>
@@ -319,8 +320,49 @@
                            HorizontalAlignment="Center"
                            Margin="16,8,16,10"/>
 
-                <!-- ── Row 7 · Compute button ─────────────────────────────── -->
-                <Button Grid.Row="7"
+                <!-- ── Row 7 · Solver selection ──────────────────────────── -->
+                <Border Grid.Row="7"
+                        Margin="16,0,16,10"
+                        Background="#0A0A18"
+                        CornerRadius="6"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1">
+                    <StackPanel Margin="10,8">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsComputing}" Value="True">
+                                        <Setter Property="IsEnabled" Value="False"/>
+                                        <Setter Property="Opacity"   Value="0.45"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+
+                        <TextBlock Text="SOLVER METHOD"
+                                   FontSize="10" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Margin="0,0,0,7"/>
+
+                        <RadioButton Content="Brute Force (Exact)"
+                                     IsChecked="{Binding IsBruteForceSelected, Mode=TwoWay}"
+                                     GroupName="SolverMethod"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     FontSize="12"
+                                     ToolTip="Evaluates every permutation — guarantees the global optimum. Practical up to ~12 cities."/>
+
+                        <RadioButton Content="Genetic Algorithm"
+                                     IsChecked="{Binding IsGeneticAlgorithmSelected, Mode=TwoWay}"
+                                     GroupName="SolverMethod"
+                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                     FontSize="12"
+                                     Margin="0,6,0,0"
+                                     ToolTip="Population-based heuristic — near-optimal result in seconds for any city count."/>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── Row 8 · Compute button ─────────────────────────────── -->
+                <Button Grid.Row="8"
                         Content="Compute Shortest Route"
                         Command="{Binding StartComputationCommand}"
                         Style="{StaticResource PrimaryButtonStyle}"
@@ -328,8 +370,8 @@
                         ToolTipService.ShowOnDisabled="True"
                         Margin="16,0,16,8"/>
 
-                <!-- ── Row 8 · Cancel button (hidden when idle) ───────────── -->
-                <Button Grid.Row="8"
+                <!-- ── Row 9 · Cancel button (hidden when idle) ───────────── -->
+                <Button Grid.Row="9"
                         Content="Cancel Computation"
                         Command="{Binding CancelComputationCommand}"
                         Style="{StaticResource DangerButtonStyle}"

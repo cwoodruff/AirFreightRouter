@@ -21,8 +21,9 @@ public partial class MainViewModel : ObservableObject
     // Private state
     // -------------------------------------------------------------------------
 
-    private readonly RouteSolver _solver        = new();
-    private readonly City        _defaultOrigin = CityDataService.GetAlbany();
+    private readonly RouteSolver        _solver        = new();
+    private readonly GeneticRouteSolver _gaSolver      = new();
+    private readonly City               _defaultOrigin = CityDataService.GetAlbany();
     private          City        _origin;
 
     private CancellationTokenSource? _cts;
@@ -107,6 +108,18 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     private bool _isProgressIndeterminate;
+
+    /// <summary>
+    /// Gets or sets which solver algorithm will be used for the next computation.
+    /// Defaults to <see cref="SolverMode.BruteForce"/>.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsBruteForceSelected))]
+    [NotifyPropertyChangedFor(nameof(IsGeneticAlgorithmSelected))]
+    [NotifyPropertyChangedFor(nameof(ComputeButtonTooltip))]
+    [NotifyPropertyChangedFor(nameof(PermutationsDisplay))]
+    [NotifyPropertyChangedFor(nameof(ResultPermutationsDisplay))]
+    private SolverMode _selectedSolver = SolverMode.BruteForce;
 
     /// <summary>Gets a human-readable description of the current application state.</summary>
     [ObservableProperty]
@@ -210,6 +223,20 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public bool HasResult => CurrentResult is not null;
 
+    /// <summary>Backing for the Brute Force radio button binding.</summary>
+    public bool IsBruteForceSelected
+    {
+        get => SelectedSolver == SolverMode.BruteForce;
+        set { if (value) SelectedSolver = SolverMode.BruteForce; }
+    }
+
+    /// <summary>Backing for the Genetic Algorithm radio button binding.</summary>
+    public bool IsGeneticAlgorithmSelected
+    {
+        get => SelectedSolver == SolverMode.GeneticAlgorithm;
+        set { if (value) SelectedSolver = SolverMode.GeneticAlgorithm; }
+    }
+
     /// <summary>
     /// Gets a human-readable route string such as
     /// <c>"Albany → Boston → New York → Albany"</c>.
@@ -225,11 +252,13 @@ public partial class MainViewModel : ObservableObject
             ? string.Empty
             : $"{CurrentResult.TotalDistance:F4}° (degree-distance)";
 
-    /// <summary>Gets the permutation count formatted for display.</summary>
+    /// <summary>Gets the permutation / generation count formatted for display.</summary>
     public string ResultPermutationsDisplay =>
         CurrentResult is null
             ? string.Empty
-            : $"{CurrentResult.PermutationsEvaluated:N0} permutations evaluated";
+            : SelectedSolver == SolverMode.GeneticAlgorithm
+                ? $"{CurrentResult.PermutationsEvaluated:N0} generations"
+                : $"{CurrentResult.PermutationsEvaluated:N0} permutations evaluated";
 
     /// <summary>Gets the elapsed solver time formatted for display.</summary>
     public string ResultElapsedDisplay =>
@@ -238,13 +267,15 @@ public partial class MainViewModel : ObservableObject
             : $"Completed in {CurrentResult.ElapsedTime:mm\\:ss\\.ff}";
 
     /// <summary>
-    /// Gets a status string showing how many permutations have been evaluated,
-    /// or an empty string when no computation is active.
+    /// Gets a status string showing progress in solver-appropriate terms:
+    /// permutations for brute-force, generation count for the genetic algorithm.
     /// </summary>
     public string PermutationsDisplay =>
         CurrentProgress is null
             ? string.Empty
-            : $"Evaluated {CurrentProgress.PermutationsEvaluated:N0} of {CurrentProgress.TotalPermutations:N0}";
+            : SelectedSolver == SolverMode.GeneticAlgorithm
+                ? $"Generation {CurrentProgress.PermutationsEvaluated:N0} of {CurrentProgress.TotalPermutations:N0}"
+                : $"Evaluated {CurrentProgress.PermutationsEvaluated:N0} of {CurrentProgress.TotalPermutations:N0}";
 
     /// <summary>
     /// Gets the tooltip shown on the Compute button, explaining the current
@@ -260,7 +291,9 @@ public partial class MainViewModel : ObservableObject
                 return "Load a CSV file first (Ctrl+O).";
             if (SelectedCities.Count < 2)
                 return "Select at least 2 delivery cities.";
-            return $"Find the shortest route through {SelectedCities.Count} cities (Ctrl+Enter).";
+            return SelectedSolver == SolverMode.GeneticAlgorithm
+                ? $"Find a near-optimal route through {SelectedCities.Count} cities using Genetic Algorithm (Ctrl+Enter)."
+                : $"Find the shortest route through {SelectedCities.Count} cities (Ctrl+Enter).";
         }
     }
 
@@ -461,8 +494,9 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // Warn the user when the search space grows large enough to be slow.
-        if (SelectedCities.Count > 12)
+        // Warn the user when the brute-force search space grows large enough to be slow.
+        // The genetic algorithm handles large inputs in bounded time, so no warning is needed.
+        if (SelectedSolver == SolverMode.BruteForce && SelectedCities.Count > 12)
         {
             long   perms    = RouteSolver.Factorial(SelectedCities.Count);
             double estSecs  = await RouteSolver.EstimateSecondsAsync(SelectedCities.ToList(), _origin);
@@ -513,8 +547,9 @@ public partial class MainViewModel : ObservableObject
         // --- Run solver ---
         try
         {
-            var result = await _solver.FindShortestRouteAsync(
-                deliveryCities, _origin, progress, _cts.Token);
+            var result = SelectedSolver == SolverMode.GeneticAlgorithm
+                ? await _gaSolver.FindRouteAsync(deliveryCities, _origin, progress, _cts.Token)
+                : await _solver.FindShortestRouteAsync(deliveryCities, _origin, progress, _cts.Token);
 
             if (result is not null)
             {
@@ -657,10 +692,13 @@ public partial class MainViewModel : ObservableObject
             IsProgressIndeterminate = false;
         CurrentProgress = info;
         ProgressPercent = info.PercentComplete;
-        StatusMessage   =
-            $"Computing…  {info.PercentComplete:F1}%  |  " +
-            $"{info.PermutationsEvaluated:N0} / {info.TotalPermutations:N0} permutations  |  " +
-            $"Best so far: {info.CurrentBestDistance:F4}°";
+        StatusMessage = SelectedSolver == SolverMode.GeneticAlgorithm
+            ? $"Computing…  {info.PercentComplete:F1}%  |  " +
+              $"Generation {info.PermutationsEvaluated:N0} / {info.TotalPermutations:N0}  |  " +
+              $"Best so far: {info.CurrentBestDistance:F4}°"
+            : $"Computing…  {info.PercentComplete:F1}%  |  " +
+              $"{info.PermutationsEvaluated:N0} / {info.TotalPermutations:N0} permutations  |  " +
+              $"Best so far: {info.CurrentBestDistance:F4}°";
 
         // Throttle live map updates to ≤ one redraw per 500 ms.
         var now = DateTime.Now;
@@ -724,12 +762,16 @@ public partial class MainViewModel : ObservableObject
         HasResultPanel   = true;
         ResultPanelTitle = cancelled
             ? "Computation Cancelled – Best Route So Far"
-            : "Optimal Route Found";
+            : SelectedSolver == SolverMode.GeneticAlgorithm
+                ? "Near-Optimal Route Found (Genetic Algorithm)"
+                : "Optimal Route Found";
 
         if (result is not null)
         {
             ResultTotalDistanceText = $"{result.TotalDistance:F4}°";
-            ResultPermutationsText  = $"{result.PermutationsEvaluated:N0} permutations";
+            ResultPermutationsText  = SelectedSolver == SolverMode.GeneticAlgorithm
+                ? $"{result.PermutationsEvaluated:N0} generations"
+                : $"{result.PermutationsEvaluated:N0} permutations";
             ResultElapsedText       = $"{result.ElapsedTime:mm\\:ss\\.ff}";
         }
         else
