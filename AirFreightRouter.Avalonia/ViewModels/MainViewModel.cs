@@ -250,8 +250,7 @@ public partial class MainViewModel : ObservableObject
             return;
 
         var filePath = file.TryGetLocalPath();
-        if (filePath is null)
-            return;
+        var fileName = file.Name;
 
         try
         {
@@ -260,7 +259,17 @@ public partial class MainViewModel : ObservableObject
             List<City> allCities;
             try
             {
-                allCities = await Task.Run(() => CityDataService.LoadCitiesFromCsv(filePath));
+                if (filePath is not null)
+                {
+                    allCities = await Task.Run(() => CityDataService.LoadCitiesFromCsv(filePath));
+                }
+                else
+                {
+                    // macOS sandbox / security-scoped bookmarks: TryGetLocalPath() returns null.
+                    // Use the stream API instead.
+                    await using var stream = await file.OpenReadAsync();
+                    allCities = await Task.Run(() => CityDataService.LoadCitiesFromStream(stream));
+                }
             }
             catch (FileNotFoundException)
             {
@@ -339,7 +348,7 @@ public partial class MainViewModel : ObservableObject
             RefreshResultPanel(null, false, null);
 
             StatusMessage =
-                $"Loaded {AvailableCities.Count} cities from \"{Path.GetFileName(filePath)}\". " +
+                $"Loaded {AvailableCities.Count} cities from \"{fileName}\". " +
                 (albanyInCsv is not null ? "Using Albany coordinates from file. " : string.Empty) +
                 "Select 2 or more delivery destinations, then click Compute Route.";
         }
