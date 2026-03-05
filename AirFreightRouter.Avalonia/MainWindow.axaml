@@ -1,0 +1,581 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:AirFreightRouter.Views"
+        xmlns:conv="clr-namespace:AirFreightRouter.Avalonia.Converters"
+        x:Class="AirFreightRouter.Avalonia.MainWindow"
+        Title="SkyRoute Express – Air Freight Route Optimizer"
+        Width="1280" Height="800" MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgMainBrush}"
+        FontFamily="$Default"
+        SystemDecorations="BorderOnly"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+O"      Command="{Binding LoadDataCommand}"/>
+        <KeyBinding Gesture="Ctrl+Return" Command="{Binding StartComputationCommand}"/>
+        <KeyBinding Gesture="Escape"      Command="{Binding CancelComputationCommand}"/>
+    </Window.KeyBindings>
+
+    <Window.Resources>
+        <conv:LegCardBackgroundConverter  x:Key="LegCardBgConv"/>
+        <conv:LegCardBorderBrushConverter x:Key="LegCardBorderBrushConv"/>
+        <conv:LegCardBorderThicknessConverter x:Key="LegCardBorderThicknessConv"/>
+    </Window.Resources>
+
+    <!--
+        Root layout: two columns (sidebar | main), three rows (titlebar | content | status bar)
+    -->
+    <Grid RowDefinitions="44,*,Auto" ColumnDefinitions="300,*">
+
+        <!-- ================================================================ -->
+        <!-- TITLE BAR                                                         -->
+        <!-- ================================================================ -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2"
+                Background="{StaticResource BgSidebarBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                PointerPressed="TitleBar_PointerPressed"
+                DoubleTapped="TitleBar_DoubleTapped">
+            <Grid ColumnDefinitions="*,Auto">
+
+                <!-- Left: logo badge + title -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            VerticalAlignment="Center" Margin="12,0,0,0">
+                    <Border Background="{StaticResource AccentBrush}"
+                            CornerRadius="7" Width="28" Height="28"
+                            Margin="0,0,10,0">
+                        <TextBlock Text="✈"
+                                   FontSize="14"
+                                   Foreground="White"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="SkyRoute Express"
+                               FontSize="13" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextBrightBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Right: About + system buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+
+                    <Button Content="?"
+                            Theme="{StaticResource TitleBarButton}"
+                            FontSize="15" FontWeight="Bold"
+                            ToolTip.Tip="About SkyRoute Express"
+                            Click="AboutButton_Click"/>
+
+                    <Button Content="─"
+                            Theme="{StaticResource TitleBarButton}"
+                            Click="MinimizeButton_Click"/>
+
+                    <Button x:Name="MaximizeButton"
+                            Content="□"
+                            Theme="{StaticResource TitleBarButton}"
+                            Click="MaximizeButton_Click"/>
+
+                    <Button Content="✕"
+                            Theme="{StaticResource TitleBarCloseButton}"
+                            Click="CloseButton_Click"/>
+
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ================================================================ -->
+        <!-- LEFT SIDEBAR                                                      -->
+        <!-- ================================================================ -->
+        <Border Grid.Row="1" Grid.Column="0"
+                Background="{StaticResource BgSidebarBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto">
+
+                <!-- Row 0 · Logo -->
+                <Border Grid.Row="0"
+                        Background="{StaticResource BgLogoBrush}"
+                        Padding="20,22">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Background="{StaticResource AccentBrush}"
+                                CornerRadius="9" Width="40" Height="40"
+                                Margin="0,0,14,0">
+                            <TextBlock Text="✈"
+                                       FontSize="20"
+                                       Foreground="White"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="SkyRoute Express"
+                                       FontSize="16" FontWeight="Bold"
+                                       Foreground="{StaticResource TextBrightBrush}"/>
+                            <TextBlock Text="Optimal Route Calculator"
+                                       FontSize="10"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Margin="0,3,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Row 1 · Separator -->
+                <Rectangle Grid.Row="1" Height="1" Fill="{StaticResource BorderBrush}"/>
+
+                <!-- Row 2 · Load City Data -->
+                <Button Grid.Row="2"
+                        Content="Load City Data"
+                        Command="{Binding LoadDataCommand}"
+                        Theme="{StaticResource PrimaryButton}"
+                        HorizontalAlignment="Stretch"
+                        Margin="16,18,16,10"/>
+
+                <!-- Row 3 · Bulk-selection helpers -->
+                <Grid Grid.Row="3" Margin="16,0,16,10" ColumnDefinitions="*,8,*">
+                    <Button Grid.Column="0"
+                            Content="Select All"
+                            Command="{Binding SelectAllCommand}"
+                            Theme="{StaticResource SecondaryButton}"
+                            HorizontalAlignment="Stretch"/>
+                    <Button Grid.Column="2"
+                            Content="Deselect All"
+                            Command="{Binding DeselectAllCommand}"
+                            Theme="{StaticResource SecondaryButton}"
+                            HorizontalAlignment="Stretch"/>
+                </Grid>
+
+                <!-- Row 4 · Section heading -->
+                <TextBlock Grid.Row="4"
+                           Text="DELIVERY CITIES"
+                           FontSize="10" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           Margin="18,2,16,6"/>
+
+                <!-- Row 5 · Scrollable city list -->
+                <ListBox Grid.Row="5"
+                         x:Name="CitiesListBox"
+                         ItemsSource="{Binding AvailableCities}"
+                         Theme="{StaticResource CityListBox}"
+                         IsEnabled="{Binding !IsComputing}"
+                         Opacity="{Binding IsComputing, Converter={x:Static conv:OpacityFromBoolConverter.Instance}}"
+                         Margin="16,0,16,0">
+                    <ListBox.ItemContainerTheme>
+                        <ControlTheme TargetType="ListBoxItem" BasedOn="{StaticResource CityListBoxItem}"/>
+                    </ListBox.ItemContainerTheme>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                      Content="{Binding DisplayName}"
+                                      Theme="{StaticResource CityCheckBox}"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Row 6 · Selection summary -->
+                <TextBlock Grid.Row="6"
+                           Text="{Binding SelectionSummary}"
+                           FontSize="11"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="16,8,16,10"/>
+
+                <!-- Row 7 · Solver selection -->
+                <Border Grid.Row="7"
+                        Margin="16,0,16,10"
+                        Background="#0A0A18"
+                        CornerRadius="6"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        IsEnabled="{Binding !IsComputing}"
+                        Opacity="{Binding IsComputing, Converter={x:Static conv:OpacityFromBoolConverter.Instance}}">
+                    <StackPanel Margin="10,8">
+                        <TextBlock Text="SOLVER METHOD"
+                                   FontSize="10" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Margin="0,0,0,7"/>
+                        <RadioButton Content="Brute Force (Exact)"
+                                     IsChecked="{Binding IsBruteForceSelected, Mode=TwoWay}"
+                                     GroupName="SolverMethod"
+                                     Theme="{StaticResource SolverRadioButton}"
+                                     ToolTip.Tip="Evaluates every permutation — guarantees the global optimum. Practical up to ~12 cities."/>
+                        <RadioButton Content="Genetic Algorithm"
+                                     IsChecked="{Binding IsGeneticAlgorithmSelected, Mode=TwoWay}"
+                                     GroupName="SolverMethod"
+                                     Theme="{StaticResource SolverRadioButton}"
+                                     Margin="0,6,0,0"
+                                     ToolTip.Tip="Population-based heuristic — near-optimal result in seconds for any city count."/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Row 8 · Compute button -->
+                <Button Grid.Row="8"
+                        Content="Compute Shortest Route"
+                        Command="{Binding StartComputationCommand}"
+                        Theme="{StaticResource PrimaryButton}"
+                        HorizontalAlignment="Stretch"
+                        ToolTip.Tip="{Binding ComputeButtonTooltip}"
+                        Margin="16,0,16,8"/>
+
+                <!-- Row 9 · Cancel button (hidden when idle) -->
+                <Button Grid.Row="9"
+                        Content="Cancel Computation"
+                        Command="{Binding CancelComputationCommand}"
+                        Theme="{StaticResource DangerButton}"
+                        HorizontalAlignment="Stretch"
+                        IsVisible="{Binding IsComputing}"
+                        Margin="16,0,16,16"/>
+
+            </Grid>
+        </Border>
+
+        <!-- ================================================================ -->
+        <!-- RIGHT PANEL                                                       -->
+        <!-- ================================================================ -->
+        <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="*,Auto">
+
+            <!-- Row 0 · Interactive map -->
+            <Grid Grid.Row="0">
+
+                <views:RouteMapControl
+                    Cities="{Binding MapCities}"
+                    Route="{Binding MapRoute}"
+                    Origin="{Binding MapOrigin}"
+                    IsRouteInProgress="{Binding IsComputing}"
+                    RouteStatusText="{Binding MapRouteStatusText}"
+                    BestDistanceText="{Binding MapBestDistanceText}"/>
+
+                <!-- Computing spinner overlay -->
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Background="#DD0C0C1A"
+                        CornerRadius="12"
+                        Padding="20"
+                        IsVisible="{Binding IsComputing}">
+                    <Ellipse x:Name="SpinnerEllipse"
+                             Width="44" Height="44"
+                             Stroke="{StaticResource AccentBrush}"
+                             StrokeThickness="3.5"
+                             StrokeDashArray="9,5"
+                             RenderTransformOrigin="0.5, 0.5">
+                        <Ellipse.RenderTransform>
+                            <RotateTransform Angle="0"/>
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+                </Border>
+
+                <!-- Result overlay — shown at the top when a route is found -->
+                <Border VerticalAlignment="Top"
+                        Background="{StaticResource BgResultBrush}"
+                        BorderBrush="{StaticResource AccentBrush}"
+                        BorderThickness="0,0,0,2"
+                        Padding="24,14"
+                        IsVisible="{Binding HasResult}">
+                    <Grid ColumnDefinitions="*,Auto">
+
+                        <!-- Left: route string -->
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="OPTIMAL ROUTE"
+                                       FontSize="9" FontWeight="Bold"
+                                       Foreground="{StaticResource AccentTextBrush}"
+                                       Margin="0,0,0,5"/>
+                            <TextBlock Text="{Binding RouteDisplay}"
+                                       FontSize="13"
+                                       Foreground="{StaticResource TextBrightBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- Right: key metrics -->
+                        <StackPanel Grid.Column="1"
+                                    Margin="32,0,0,0"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="{Binding ResultDistanceDisplay}"
+                                       FontSize="15" FontWeight="Bold"
+                                       Foreground="{StaticResource TextBrightBrush}"
+                                       HorizontalAlignment="Right"/>
+                            <TextBlock Text="{Binding ResultPermutationsDisplay}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,3,0,0"/>
+                            <TextBlock Text="{Binding ResultElapsedDisplay}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+            </Grid>
+
+            <!-- Row 1 · Results panel (Expander, hidden until result exists) -->
+            <Expander Grid.Row="1"
+                      IsExpanded="True"
+                      IsVisible="{Binding HasResultPanel}"
+                      Background="#1A1A2C"
+                      BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="0,1,0,0">
+
+                <!-- Header: title + key stats -->
+                <Expander.Header>
+                    <Border Padding="4,6,0,6">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding ResultPanelTitle}"
+                                           FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextBrightBrush}"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="Total distance: "
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding ResultTotalDistanceText}"
+                                               FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource AccentTextBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding ResultPermutationsText}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="24,0,0,0"/>
+
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding ResultElapsedText}"
+                                       FontFamily="Consolas"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="16,0,0,0"/>
+                        </Grid>
+                    </Border>
+                </Expander.Header>
+
+                <!-- Body: itinerary + statistics footer -->
+                <Grid MaxHeight="260" RowDefinitions="*,Auto">
+
+                    <!-- Route itinerary -->
+                    <ScrollViewer Grid.Row="0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding ResultLegs}"
+                                      Margin="10,6,10,2">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,2"
+                                            Padding="10,7"
+                                            CornerRadius="6"
+                                            Background="{Binding ., Converter={StaticResource LegCardBgConv}}"
+                                            BorderThickness="{Binding IsReturn, Converter={StaticResource LegCardBorderThicknessConv}}"
+                                            BorderBrush="{Binding IsReturn, Converter={StaticResource LegCardBorderBrushConv}}">
+                                        <Grid ColumnDefinitions="28,*,22,*,Auto,86,100">
+
+                                            <!-- Leg number badge -->
+                                            <Border Grid.Column="0"
+                                                    Background="{StaticResource AccentDimBrush}"
+                                                    CornerRadius="4"
+                                                    Width="22" Height="22"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding LegNumber}"
+                                                           FontSize="10" FontWeight="Bold"
+                                                           Foreground="{StaticResource AccentTextBrush}"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                            </Border>
+
+                                            <!-- From city -->
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                        VerticalAlignment="Center" Margin="6,0,0,0">
+                                                <TextBlock Text="{Binding FromCity.Name}"
+                                                           FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource TextBrightBrush}"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Text=" "/>
+                                                <TextBlock Text="{Binding FromCity.State}"
+                                                           FontSize="10"
+                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+
+                                            <!-- Arrow -->
+                                            <TextBlock Grid.Column="2"
+                                                       Text="→"
+                                                       FontSize="14"
+                                                       Foreground="{StaticResource AccentTextBrush}"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"/>
+
+                                            <!-- To city -->
+                                            <StackPanel Grid.Column="3" Orientation="Horizontal"
+                                                        VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding ToCity.Name}"
+                                                           FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource TextBrightBrush}"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Text=" "/>
+                                                <TextBlock Text="{Binding ToCity.State}"
+                                                           FontSize="10"
+                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+
+                                            <!-- Return tag -->
+                                            <TextBlock Grid.Column="4"
+                                                       Text="{Binding ReturnTag}"
+                                                       FontSize="9" FontStyle="Italic"
+                                                       Foreground="{StaticResource AccentTextBrush}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="6,0,4,0"/>
+
+                                            <!-- Leg distance -->
+                                            <StackPanel Grid.Column="5"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Right"
+                                                        Margin="4,0">
+                                                <TextBlock Text="LEG"
+                                                           FontSize="10" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                           Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding LegDistanceDisplay}"
+                                                           FontFamily="Consolas"
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            </StackPanel>
+
+                                            <!-- Cumulative distance -->
+                                            <StackPanel Grid.Column="6"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Right"
+                                                        Margin="4,0,2,0">
+                                                <TextBlock Text="TOTAL"
+                                                           FontSize="10" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                           Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding CumulativeDistanceDisplay}"
+                                                           FontFamily="Consolas"
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                            </StackPanel>
+
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- Statistics footer -->
+                    <Border Grid.Row="1"
+                            Background="#15151F"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,1,0,0"
+                            Padding="16,9">
+                        <Grid ColumnDefinitions="*,*,*">
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="AVG LEG DISTANCE"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="{Binding ResultAverageLegText}"
+                                           FontFamily="Consolas"
+                                           FontSize="13"
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="LONGEST LEG"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="{Binding ResultLongestLegText}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="SHORTEST LEG"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="{Binding ResultShortestLegText}"
+                                           FontSize="11"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+
+                        </Grid>
+                    </Border>
+
+                </Grid>
+            </Expander>
+
+        </Grid>
+
+        <!-- ================================================================ -->
+        <!-- STATUS BAR                                                        -->
+        <!-- ================================================================ -->
+        <Border Grid.Row="2" Grid.ColumnSpan="2"
+                Background="{StaticResource BgStatusBarBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="16,0">
+            <Grid Height="38" ColumnDefinitions="*,260,20,Auto,16,1,16,Auto">
+
+                <!-- Status message -->
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           FontSize="12"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <!-- Slim progress bar -->
+                <ProgressBar Grid.Column="1"
+                             Value="{Binding ProgressPercent}"
+                             IsIndeterminate="{Binding IsProgressIndeterminate}"
+                             Maximum="100"
+                             Height="5"
+                             VerticalAlignment="Center"
+                             Foreground="{StaticResource AccentBrush}"
+                             Background="#22223A"/>
+
+                <!-- Elapsed time -->
+                <StackPanel Grid.Column="3"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="⏱ "
+                               FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ElapsedTimeDisplay}"
+                               FontFamily="Consolas"
+                               FontSize="12"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Vertical divider -->
+                <Rectangle Grid.Column="5"
+                           Fill="{StaticResource BorderBrush}"
+                           VerticalAlignment="Stretch"/>
+
+                <!-- Permutations counter -->
+                <TextBlock Grid.Column="7"
+                           Text="{Binding PermutationsDisplay}"
+                           FontSize="11"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           VerticalAlignment="Center"/>
+
+            </Grid>
+        </Border>
+
+    </Grid>
+</Window>

@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AirFreightRouter.Views.AppMessageBox"
+        Width="460" Height="220" MinHeight="180"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgMainBrush}"
+        FontFamily="$Default"
+        SystemDecorations="None">
+
+    <Grid RowDefinitions="44,*,Auto">
+
+        <!-- Title bar -->
+        <Border Grid.Row="0"
+                Background="{StaticResource BgSidebarBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                PointerPressed="TitleBar_PointerPressed">
+            <Grid>
+                <TextBlock x:Name="TbTitle"
+                           FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextBrightBrush}"
+                           VerticalAlignment="Center"
+                           Margin="16,0,0,0"/>
+                <Button HorizontalAlignment="Right"
+                        Content="✕"
+                        Theme="{StaticResource TitleBarCloseButton}"
+                        Click="CloseButton_Click"/>
+            </Grid>
+        </Border>
+
+        <!-- Message -->
+        <ScrollViewer Grid.Row="1" Margin="24,16" VerticalScrollBarVisibility="Auto">
+            <TextBlock x:Name="TbMessage"
+                       FontSize="13"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       TextWrapping="Wrap"
+                       LineHeight="20"/>
+        </ScrollViewer>
+
+        <!-- Buttons -->
+        <Border Grid.Row="2"
+                Background="{StaticResource BgSidebarBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="16,10">
+            <StackPanel x:Name="ButtonPanel"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="8"/>
+        </Border>
+
+    </Grid>
+</Window>

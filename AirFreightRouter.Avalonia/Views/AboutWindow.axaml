@@ -1,0 +1,151 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AirFreightRouter.Views.AboutWindow"
+        Title="About SkyRoute Express"
+        Width="480" Height="420"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgMainBrush}"
+        FontFamily="$Default"
+        SystemDecorations="None">
+
+    <Grid RowDefinitions="44,*,Auto">
+
+        <!-- ================================================================ -->
+        <!-- TITLE BAR                                                         -->
+        <!-- ================================================================ -->
+        <Border Grid.Row="0"
+                Background="{StaticResource BgSidebarBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                PointerPressed="TitleBar_PointerPressed">
+            <Grid>
+                <TextBlock Text="About SkyRoute Express"
+                           FontSize="13" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextBrightBrush}"
+                           VerticalAlignment="Center"
+                           Margin="16,0,0,0"/>
+
+                <Button HorizontalAlignment="Right"
+                        Content="✕"
+                        Theme="{StaticResource TitleBarCloseButton}"
+                        Click="CloseButton_Click"/>
+            </Grid>
+        </Border>
+
+        <!-- ================================================================ -->
+        <!-- CONTENT                                                           -->
+        <!-- ================================================================ -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel VerticalAlignment="Center"
+                        HorizontalAlignment="Center"
+                        Margin="40,20">
+
+                <!-- App icon badge -->
+                <Border Background="{StaticResource AccentBrush}"
+                        CornerRadius="14"
+                        Width="56" Height="56"
+                        HorizontalAlignment="Center"
+                        Margin="0,0,0,14">
+                    <TextBlock Text="✈"
+                               FontSize="26"
+                               Foreground="White"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- Application name -->
+                <TextBlock Text="SkyRoute Express"
+                           FontSize="20" FontWeight="Bold"
+                           Foreground="{StaticResource TextBrightBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,4"/>
+
+                <!-- Subtitle -->
+                <TextBlock Text="Air Freight Route Optimizer"
+                           FontSize="12"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,4"/>
+
+                <!-- Version -->
+                <TextBlock Text="Version 1.0.0"
+                           FontSize="11"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,16"/>
+
+                <!-- Description -->
+                <TextBlock TextWrapping="Wrap"
+                           MaxWidth="368"
+                           TextAlignment="Center"
+                           FontSize="12"
+                           LineHeight="20"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,16"
+                           Text="Computes the shortest straight-line round-trip route for air freight deliveries, starting and ending at Albany, NY. Uses Heap's Algorithm (1963) brute-force permutation search to guarantee the globally optimal route."/>
+
+                <!-- Flat-earth assumption warning box -->
+                <Border Background="#18182A"
+                        BorderBrush="{StaticResource WarningBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="14,10"
+                        MaxWidth="368"
+                        HorizontalAlignment="Center">
+                    <StackPanel>
+                        <TextBlock FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{StaticResource WarningBrush}"
+                                   Margin="0,0,0,6"
+                                   Text="⚠  Flat-Earth / Equal-Degree Assumption"/>
+                        <TextBlock TextWrapping="Wrap"
+                                   FontSize="11"
+                                   LineHeight="18"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   Text="Distances are computed using Euclidean differences in decimal degrees — one degree of latitude equals one degree of longitude. This is a simplification; real flight paths use great-circle (geodesic) calculations that account for the Earth's curvature. Results are directionally correct for relative route comparisons but are not true geographic distances."/>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ================================================================ -->
+        <!-- FOOTER                                                            -->
+        <!-- ================================================================ -->
+        <Border Grid.Row="2"
+                Background="{StaticResource BgSidebarBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="16,10">
+            <Grid ColumnDefinitions="*,Auto">
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            VerticalAlignment="Center" Spacing="4">
+                    <TextBlock FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               VerticalAlignment="Center" Text="Built with"/>
+                    <TextBlock FontSize="11" FontWeight="SemiBold"
+                               Foreground="{StaticResource AccentTextBrush}"
+                               VerticalAlignment="Center" Text=".NET 8"/>
+                    <TextBlock FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               VerticalAlignment="Center" Text="·"/>
+                    <TextBlock FontSize="11" FontWeight="SemiBold"
+                               Foreground="{StaticResource AccentTextBrush}"
+                               VerticalAlignment="Center" Text="Avalonia"/>
+                    <TextBlock FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               VerticalAlignment="Center" Text="·"/>
+                    <TextBlock FontSize="11" FontWeight="SemiBold"
+                               Foreground="{StaticResource AccentTextBrush}"
+                               VerticalAlignment="Center" Text="CommunityToolkit.Mvvm"/>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="Close"
+                        Width="80"
+                        Theme="{StaticResource SecondaryButton}"
+                        Click="CloseButton_Click"/>
+            </Grid>
+        </Border>
+
+    </Grid>
+</Window>

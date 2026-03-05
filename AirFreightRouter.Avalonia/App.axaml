@@ -1,0 +1,385 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="AirFreightRouter.Avalonia.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Styles>
+        <FluentTheme/>
+
+        <!-- ================================================================ -->
+        <!-- SCROLLBAR — slim dark                                            -->
+        <!-- ================================================================ -->
+
+        <Style Selector="ScrollBar">
+            <Setter Property="Background" Value="#1C1C2C"/>
+        </Style>
+        <Style Selector="ScrollBar /template/ Thumb">
+            <Setter Property="Background"    Value="#4A4A6E"/>
+            <Setter Property="CornerRadius"  Value="3"/>
+            <Setter Property="MinHeight"     Value="20"/>
+            <Setter Property="MinWidth"      Value="6"/>
+        </Style>
+        <Style Selector="ScrollBar[Orientation=Vertical]">
+            <Setter Property="Width" Value="8"/>
+        </Style>
+
+    </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+
+            <!-- ================================================================ -->
+            <!-- BUTTON CONTROL THEMES                                            -->
+            <!-- ================================================================ -->
+
+            <!-- Primary button — accent blue -->
+            <ControlTheme x:Key="PrimaryButton" TargetType="Button">
+                <Setter Property="FontFamily"      Value="$Default"/>
+                <Setter Property="FontSize"        Value="13"/>
+                <Setter Property="FontWeight"      Value="SemiBold"/>
+                <Setter Property="Foreground"      Value="White"/>
+                <Setter Property="Background"      Value="{StaticResource AccentBrush}"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding"         Value="16,11"/>
+                <Setter Property="Cursor"          Value="Hand"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment"   Value="Center"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Content="{TemplateBinding Content}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#Root">
+                    <Setter Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+                </Style>
+                <Style Selector="^:pressed /template/ Border#Root">
+                    <Setter Property="Background" Value="{StaticResource AccentPressedBrush}"/>
+                </Style>
+                <Style Selector="^:disabled /template/ Border#Root">
+                    <Setter Property="Background" Value="{StaticResource AccentDimBrush}"/>
+                </Style>
+                <Style Selector="^:disabled">
+                    <Setter Property="Foreground" Value="{StaticResource TextDisabledBrush}"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- Danger button — red, used for Cancel -->
+            <ControlTheme x:Key="DangerButton" TargetType="Button">
+                <Setter Property="FontFamily"      Value="$Default"/>
+                <Setter Property="FontSize"        Value="13"/>
+                <Setter Property="FontWeight"      Value="SemiBold"/>
+                <Setter Property="Foreground"      Value="White"/>
+                <Setter Property="Background"      Value="{StaticResource DangerBrush}"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding"         Value="16,10"/>
+                <Setter Property="Cursor"          Value="Hand"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment"   Value="Center"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Content="{TemplateBinding Content}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#Root">
+                    <Setter Property="Background" Value="{StaticResource DangerHoverBrush}"/>
+                </Style>
+                <Style Selector="^:pressed /template/ Border#Root">
+                    <Setter Property="Background" Value="{StaticResource DangerPressedBrush}"/>
+                </Style>
+                <Style Selector="^:disabled /template/ Border#Root">
+                    <Setter Property="Background" Value="{StaticResource DangerDimBrush}"/>
+                </Style>
+                <Style Selector="^:disabled">
+                    <Setter Property="Foreground" Value="{StaticResource TextDisabledBrush}"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- Secondary button — subtle outline -->
+            <ControlTheme x:Key="SecondaryButton" TargetType="Button">
+                <Setter Property="FontFamily"      Value="$Default"/>
+                <Setter Property="FontSize"        Value="12"/>
+                <Setter Property="Foreground"      Value="{StaticResource TextPrimaryBrush}"/>
+                <Setter Property="Background"      Value="#28283E"/>
+                <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding"         Value="16,8"/>
+                <Setter Property="Cursor"          Value="Hand"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment"   Value="Center"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Content="{TemplateBinding Content}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#Root">
+                    <Setter Property="Background"   Value="{StaticResource BgHoverBrush}"/>
+                    <Setter Property="BorderBrush"  Value="{StaticResource AccentBrush}"/>
+                </Style>
+                <Style Selector="^:pointerover">
+                    <Setter Property="Foreground"   Value="{StaticResource TextBrightBrush}"/>
+                </Style>
+                <Style Selector="^:pressed /template/ Border#Root">
+                    <Setter Property="Background" Value="#1E1E38"/>
+                </Style>
+                <Style Selector="^:disabled">
+                    <Setter Property="Foreground" Value="{StaticResource TextDisabledBrush}"/>
+                </Style>
+                <Style Selector="^:disabled /template/ Border#Root">
+                    <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- Close button for title bar (transparent, red on hover) -->
+            <ControlTheme x:Key="TitleBarCloseButton" TargetType="Button">
+                <Setter Property="Background"      Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Foreground"      Value="{StaticResource TextPrimaryBrush}"/>
+                <Setter Property="FontSize"        Value="13"/>
+                <Setter Property="Width"           Value="46"/>
+                <Setter Property="Height"          Value="44"/>
+                <Setter Property="Cursor"          Value="Hand"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment"   Value="Center"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border x:Name="Root" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Content="{TemplateBinding Content}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#Root">
+                    <Setter Property="Background" Value="#C42B1C"/>
+                </Style>
+                <Style Selector="^:pointerover">
+                    <Setter Property="Foreground" Value="White"/>
+                </Style>
+                <Style Selector="^:pressed /template/ Border#Root">
+                    <Setter Property="Background" Value="#A01A0F"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- Title bar system button (min/max) -->
+            <ControlTheme x:Key="TitleBarButton" TargetType="Button">
+                <Setter Property="Background"      Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Foreground"      Value="{StaticResource TextPrimaryBrush}"/>
+                <Setter Property="FontSize"        Value="11"/>
+                <Setter Property="Width"           Value="46"/>
+                <Setter Property="Height"          Value="44"/>
+                <Setter Property="Cursor"          Value="Hand"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment"   Value="Center"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border x:Name="Root" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Content="{TemplateBinding Content}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#Root">
+                    <Setter Property="Background" Value="{StaticResource BgHoverBrush}"/>
+                </Style>
+                <Style Selector="^:pointerover">
+                    <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                </Style>
+                <Style Selector="^:pressed /template/ Border#Root">
+                    <Setter Property="Background" Value="#252540"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- ================================================================ -->
+            <!-- CHECKBOX CONTROL THEME — custom dark tick box                   -->
+            <!-- ================================================================ -->
+
+            <ControlTheme x:Key="CityCheckBox" TargetType="CheckBox">
+                <Setter Property="FontSize"        Value="13"/>
+                <Setter Property="Foreground"      Value="{StaticResource TextPrimaryBrush}"/>
+                <Setter Property="Cursor"          Value="Hand"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Grid ColumnDefinitions="20,*" Background="Transparent">
+                            <Border x:Name="CheckBorder"
+                                    Grid.Column="0"
+                                    Width="16" Height="16"
+                                    CornerRadius="3"
+                                    BorderThickness="1.5"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    Background="Transparent"
+                                    VerticalAlignment="Center">
+                                <Path x:Name="Checkmark"
+                                      Data="M 2.5,7.5 L 6,11 L 13.5,3.5"
+                                      Stroke="White"
+                                      StrokeThickness="1.8"
+                                      StrokeLineCap="Round"
+                                      StrokeJoin="Round"
+                                      IsVisible="False"/>
+                            </Border>
+                            <ContentPresenter Grid.Column="1"
+                                              Margin="8,0,0,0"
+                                              VerticalAlignment="Center"
+                                              Content="{TemplateBinding Content}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:checked /template/ Border#CheckBorder">
+                    <Setter Property="Background"   Value="{StaticResource AccentBrush}"/>
+                    <Setter Property="BorderBrush"  Value="{StaticResource AccentBrush}"/>
+                </Style>
+                <Style Selector="^:checked /template/ Path#Checkmark">
+                    <Setter Property="IsVisible" Value="True"/>
+                </Style>
+                <Style Selector="^:checked">
+                    <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                </Style>
+                <Style Selector="^:pointerover /template/ Border#CheckBorder">
+                    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                </Style>
+                <Style Selector="^:pointerover">
+                    <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                </Style>
+                <Style Selector="^:disabled">
+                    <Setter Property="Foreground" Value="{StaticResource TextDisabledBrush}"/>
+                </Style>
+                <Style Selector="^:disabled /template/ Border#CheckBorder">
+                    <Setter Property="BorderBrush" Value="{StaticResource TextDisabledBrush}"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- ================================================================ -->
+            <!-- LISTBOX CONTROL THEMES                                           -->
+            <!-- ================================================================ -->
+
+            <ControlTheme x:Key="CityListBox" TargetType="ListBox">
+                <Setter Property="Background"      Value="{StaticResource BgListBrush}"/>
+                <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding"         Value="4"/>
+                <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+                <Setter Property="ScrollViewer.VerticalScrollBarVisibility"   Value="Auto"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ScrollViewer Padding="{TemplateBinding Padding}">
+                                <ItemsPresenter/>
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+            </ControlTheme>
+
+            <ControlTheme x:Key="CityListBoxItem" TargetType="ListBoxItem">
+                <Setter Property="Padding"                    Value="6,4"/>
+                <Setter Property="Margin"                     Value="0,1"/>
+                <Setter Property="Background"                 Value="Transparent"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border x:Name="ItemBorder"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="4">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#ItemBorder">
+                    <Setter Property="Background" Value="{StaticResource BgHoverBrush}"/>
+                </Style>
+                <Style Selector="^:selected /template/ Border#ItemBorder">
+                    <Setter Property="Background" Value="Transparent"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- ================================================================ -->
+            <!-- RADIOBUTTON CONTROL THEME                                        -->
+            <!-- ================================================================ -->
+
+            <ControlTheme x:Key="SolverRadioButton" TargetType="RadioButton">
+                <Setter Property="FontSize"   Value="12"/>
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                <Setter Property="Cursor"     Value="Hand"/>
+                <Setter Property="Margin"     Value="0,2"/>
+                <Style Selector="^:checked">
+                    <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                </Style>
+                <Style Selector="^:pointerover">
+                    <Setter Property="Foreground" Value="{StaticResource TextBrightBrush}"/>
+                </Style>
+            </ControlTheme>
+
+            <!-- ================================================================ -->
+            <!-- COLOUR BRUSHES                                                   -->
+            <!-- ================================================================ -->
+
+            <!-- Backgrounds -->
+            <SolidColorBrush x:Key="BgMainBrush"       Color="#1E1E2E"/>
+            <SolidColorBrush x:Key="BgSidebarBrush"    Color="#252536"/>
+            <SolidColorBrush x:Key="BgStatusBarBrush"  Color="#16161F"/>
+            <SolidColorBrush x:Key="BgLogoBrush"       Color="#1B1B2D"/>
+            <SolidColorBrush x:Key="BgListBrush"       Color="#1C1C2C"/>
+            <SolidColorBrush x:Key="BgHoverBrush"      Color="#2A2A42"/>
+            <SolidColorBrush x:Key="BgResultBrush"     Color="#192840"/>
+            <SolidColorBrush x:Key="BgCardBrush"       Color="#21213A"/>
+
+            <!-- Accent (blue) -->
+            <SolidColorBrush x:Key="AccentBrush"        Color="#4A9DFF"/>
+            <SolidColorBrush x:Key="AccentHoverBrush"   Color="#3D85D8"/>
+            <SolidColorBrush x:Key="AccentPressedBrush" Color="#2D6CB0"/>
+            <SolidColorBrush x:Key="AccentDimBrush"     Color="#1A2E48"/>
+            <SolidColorBrush x:Key="AccentTextBrush"    Color="#4A9DFF"/>
+
+            <!-- State colours -->
+            <SolidColorBrush x:Key="SuccessBrush"       Color="#4ADE80"/>
+            <SolidColorBrush x:Key="WarningBrush"       Color="#FBBF24"/>
+
+            <!-- Danger (red) -->
+            <SolidColorBrush x:Key="DangerBrush"        Color="#F87171"/>
+            <SolidColorBrush x:Key="DangerHoverBrush"   Color="#DC5555"/>
+            <SolidColorBrush x:Key="DangerPressedBrush" Color="#C03A3A"/>
+            <SolidColorBrush x:Key="DangerDimBrush"     Color="#2C1520"/>
+
+            <!-- Borders -->
+            <SolidColorBrush x:Key="BorderBrush"        Color="#38385A"/>
+            <SolidColorBrush x:Key="BorderSubtleBrush"  Color="#28283E"/>
+
+            <!-- Text -->
+            <SolidColorBrush x:Key="TextBrightBrush"    Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="TextPrimaryBrush"   Color="#A0A0B8"/>
+            <SolidColorBrush x:Key="TextMutedBrush"     Color="#5A5A7A"/>
+            <SolidColorBrush x:Key="TextDisabledBrush"  Color="#38385A"/>
+
+        </ResourceDictionary>
+    </Application.Resources>
+
+</Application>
