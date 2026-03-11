@@ -22,11 +22,26 @@ public static class CityDataService
     /// </remarks>
     /// <param name="filePath">Absolute or relative path to the CSV file.</param>
     /// <returns>A list of successfully parsed <see cref="City"/> instances.</returns>
-    public static List<City> LoadCitiesFromCsv(string filePath)
+    public static List<City> LoadCitiesFromCsv(string filePath) =>
+        LoadCitiesFromLines(File.ReadLines(filePath));
+
+    /// <summary>
+    /// Parses city data from a <see cref="Stream"/> (e.g. from Avalonia's StorageProvider).
+    /// </summary>
+    public static List<City> LoadCitiesFromStream(Stream stream)
+    {
+        using var reader = new StreamReader(stream);
+        var lines = new List<string>();
+        while (reader.ReadLine() is { } line)
+            lines.Add(line);
+        return LoadCitiesFromLines(lines);
+    }
+
+    private static List<City> LoadCitiesFromLines(IEnumerable<string> lines)
     {
         var cities = new List<City>();
 
-        foreach (var rawLine in File.ReadLines(filePath))
+        foreach (var rawLine in lines)
         {
             var line = rawLine.Trim();
 
