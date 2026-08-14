@@ -2,15 +2,17 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:AirFreightRouter.Views"
         xmlns:conv="clr-namespace:AirFreightRouter.Avalonia.Converters"
+        xmlns:vm="clr-namespace:AirFreightRouter.ViewModels"
+        xmlns:models="clr-namespace:AirFreightRouter.Models"
         x:Class="AirFreightRouter.Avalonia.MainWindow"
+        x:DataType="vm:MainViewModel"
         Title="SkyRoute Express – Air Freight Route Optimizer"
         Width="1280" Height="800" MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgMainBrush}"
         FontFamily="$Default"
-        SystemDecorations="BorderOnly"
+        WindowDecorations="BorderOnly"
         ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1">
 
     <Window.KeyBindings>
@@ -164,7 +166,7 @@
                         <ControlTheme TargetType="ListBoxItem" BasedOn="{StaticResource CityListBoxItem}"/>
                     </ListBox.ItemContainerTheme>
                     <ListBox.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="vm:SelectableCityViewModel">
                             <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                       Content="{Binding DisplayName}"
                                       Theme="{StaticResource CityCheckBox}"/>
@@ -366,7 +368,7 @@
                         <ItemsControl ItemsSource="{Binding ResultLegs}"
                                       Margin="10,6,10,2">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="models:RouteLeg">
                                     <Border Margin="0,2"
                                             Padding="10,7"
                                             CornerRadius="6"

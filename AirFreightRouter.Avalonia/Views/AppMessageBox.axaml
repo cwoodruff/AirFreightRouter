@@ -7,7 +7,7 @@
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource BgMainBrush}"
         FontFamily="$Default"
-        SystemDecorations="None">
+        WindowDecorations="None">
 
     <Grid RowDefinitions="44,*,Auto">
 
