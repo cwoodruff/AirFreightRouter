@@ -94,7 +94,7 @@
                 Background="{StaticResource BgSidebarBrush}"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="0,0,1,0">
-            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto">
 
                 <!-- Row 0 · Logo -->
                 <Border Grid.Row="0"
@@ -210,8 +210,36 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Row 8 · Compute button -->
-                <Button Grid.Row="8"
+                <!-- Row 8 · Objective selection (which fitness function the solver maximises) -->
+                <Border Grid.Row="8"
+                        Margin="16,0,16,10"
+                        Background="#0A0A18"
+                        CornerRadius="6"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        IsEnabled="{Binding !IsComputing}"
+                        Opacity="{Binding IsComputing, Converter={x:Static conv:OpacityFromBoolConverter.Instance}}">
+                    <StackPanel Margin="10,8">
+                        <TextBlock Text="OBJECTIVE"
+                                   FontSize="10" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Margin="0,0,0,7"/>
+                        <RadioButton Content="Shortest Distance"
+                                     IsChecked="{Binding IsDistanceObjectiveSelected, Mode=TwoWay}"
+                                     GroupName="RouteObjective"
+                                     Theme="{StaticResource SolverRadioButton}"
+                                     ToolTip.Tip="Fitness = 1 / total degree-distance. The classic travelling-salesman objective."/>
+                        <RadioButton Content="Lowest Operating Cost"
+                                     IsChecked="{Binding IsCostObjectiveSelected, Mode=TwoWay}"
+                                     GroupName="RouteObjective"
+                                     Theme="{StaticResource SolverRadioButton}"
+                                     Margin="0,6,0,0"
+                                     ToolTip.Tip="Fitness = 1 / (fuel + handling fees + late-delivery penalties + $1,000 per airport-curfew arrival)."/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Row 9 · Compute button -->
+                <Button Grid.Row="9"
                         Content="Compute Shortest Route"
                         Command="{Binding StartComputationCommand}"
                         Theme="{StaticResource PrimaryButton}"
@@ -219,8 +247,8 @@
                         ToolTip.Tip="{Binding ComputeButtonTooltip}"
                         Margin="16,0,16,8"/>
 
-                <!-- Row 9 · Cancel button (hidden when idle) -->
-                <Button Grid.Row="9"
+                <!-- Row 10 · Cancel button (hidden when idle) -->
+                <Button Grid.Row="10"
                         Content="Cancel Computation"
                         Command="{Binding CancelComputationCommand}"
                         Theme="{StaticResource DangerButton}"
@@ -291,6 +319,18 @@
                                     Margin="32,0,0,0"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Center">
+                            <TextBlock Text="{Binding ResultCostDisplay}"
+                                       IsVisible="{Binding HasCostResult}"
+                                       FontSize="15" FontWeight="Bold"
+                                       Foreground="{StaticResource AccentTextBrush}"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,0,0,3"/>
+                            <TextBlock Text="{Binding ResultCostBreakdownDisplay}"
+                                       IsVisible="{Binding HasCostResult}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,0,0,3"/>
                             <TextBlock Text="{Binding ResultDistanceDisplay}"
                                        FontSize="15" FontWeight="Bold"
                                        Foreground="{StaticResource TextBrightBrush}"
@@ -334,6 +374,16 @@
                                                Foreground="{StaticResource TextMutedBrush}"
                                                VerticalAlignment="Center"/>
                                     <TextBlock Text="{Binding ResultTotalDistanceText}"
+                                               FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource AccentTextBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text="   ·   Total cost: "
+                                               IsVisible="{Binding HasResultPanelCost}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding ResultTotalCostText}"
+                                               IsVisible="{Binding HasResultPanelCost}"
                                                FontSize="11" FontWeight="SemiBold"
                                                Foreground="{StaticResource AccentTextBrush}"
                                                VerticalAlignment="Center"/>

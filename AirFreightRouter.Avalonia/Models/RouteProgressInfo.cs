@@ -16,8 +16,18 @@ public class RouteProgressInfo
     /// </summary>
     public double PercentComplete { get; set; }
 
-    /// <summary>Gets or sets the shortest route distance found so far.</summary>
+    /// <summary>
+    /// Gets or sets the degree-distance of the best route found so far.  This is always
+    /// the route's true distance, even when the solver is optimising for cost.
+    /// </summary>
     public double CurrentBestDistance { get; set; }
+
+    /// <summary>
+    /// Gets or sets the operating cost of the best route found so far, or
+    /// <see langword="null"/> when the solver is optimising for
+    /// <see cref="RouteObjective.ShortestDistance"/>.
+    /// </summary>
+    public double? CurrentBestCost { get; set; }
 
     /// <summary>
     /// Gets or sets the delivery-city ordering (without the origin endpoints) of the

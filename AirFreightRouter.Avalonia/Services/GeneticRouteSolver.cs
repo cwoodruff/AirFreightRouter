@@ -16,6 +16,11 @@ namespace AirFreightRouter.Services;
 /// (0 … n−1 into the <paramref name="cities"/> list).  The origin is not part of
 /// the chromosome; it is always prepended and appended when computing route distance.
 ///
+/// Fitness is the reciprocal of whichever quantity the caller's
+/// <see cref="RouteObjective"/> selects — route distance, or the operating cost
+/// computed by <see cref="RouteCostModel"/> — so the GA maximises fitness while
+/// minimising the chosen objective.
+///
 /// Algorithm reference:
 ///   Goldberg, D. E. (1989). Genetic Algorithms in Search, Optimization, and Machine Learning.
 ///   Order Crossover (OX) operator: Davis, L. (1985). Applying Adaptive Algorithms to
@@ -39,6 +44,9 @@ public class GeneticRouteSolver
     /// The delivery cities to visit (must not include the origin city).
     /// </param>
     /// <param name="origin">The fixed start and end point of the route.</param>
+    /// <param name="objective">
+    /// The fitness function to maximise — shortest distance or lowest operating cost.
+    /// </param>
     /// <param name="progress">
     /// Receives a <see cref="RouteProgressInfo"/> after every generation.
     /// <see cref="RouteProgressInfo.PermutationsEvaluated"/> is the current
@@ -53,6 +61,7 @@ public class GeneticRouteSolver
     public async Task<RouteResult?> FindRouteAsync(
         List<City>                   cities,
         City                         origin,
+        RouteObjective               objective,
         IProgress<RouteProgressInfo> progress,
         CancellationToken            cancellationToken)
     {
@@ -62,7 +71,7 @@ public class GeneticRouteSolver
         try
         {
             return await Task.Run(
-                () => SolveInternal(cities, origin, progress, cancellationToken),
+                () => SolveInternal(cities, origin, objective, progress, cancellationToken),
                 cancellationToken);
         }
         catch (OperationCanceledException)
@@ -76,35 +85,42 @@ public class GeneticRouteSolver
     private static RouteResult? SolveInternal(
         List<City>                    cities,
         City                          origin,
+        RouteObjective                objective,
         IProgress<RouteProgressInfo>? progress,
         CancellationToken             cancellationToken)
     {
-        int n  = cities.Count;
-        var sw = Stopwatch.StartNew();
+        int  n         = cities.Count;
+        var  sw        = Stopwatch.StartNew();
+        bool costMode  = objective == RouteObjective.LowestOperatingCost;
+        var  costModel = new RouteCostModel(cities.Append(origin));
 
         // ── Degenerate cases ─────────────────────────────────────────────────
         if (n == 0)
         {
+            List<City> trivial = [origin, origin];
             return new RouteResult
             {
-                Route                 = [origin, origin],
+                Route                 = trivial,
                 TotalDistance         = 0.0,
                 PermutationsEvaluated = 0,
                 TotalPermutations     = MaxGenerations,
-                ElapsedTime           = sw.Elapsed
+                ElapsedTime           = sw.Elapsed,
+                Cost                  = costMode ? costModel.Evaluate(trivial) : null
             };
         }
 
         if (n == 1)
         {
-            double d = origin.DistanceTo(cities[0]) * 2.0;
+            List<City> single = [origin, cities[0], origin];
+            double     d      = origin.DistanceTo(cities[0]) * 2.0;
             return new RouteResult
             {
-                Route                 = [origin, cities[0], origin],
+                Route                 = single,
                 TotalDistance         = d,
                 PermutationsEvaluated = 1,
                 TotalPermutations     = MaxGenerations,
-                ElapsedTime           = sw.Elapsed
+                ElapsedTime           = sw.Elapsed,
+                Cost                  = costMode ? costModel.Evaluate(single) : null
             };
         }
 
@@ -122,8 +138,26 @@ public class GeneticRouteSolver
             return d;
         }
 
-        // Fitness = 1 / distance (maximised by the GA ≡ minimising distance).
-        double Fitness(int[] chromosome) => 1.0 / (RouteDistance(chromosome) + 1e-10);
+        // Scratch buffer holding origin → chromosome cities → origin, reused across every
+        // cost evaluation so the hot loop stays allocation-free.  Only used in cost mode.
+        var scratchRoute = new City[n + 2];
+        scratchRoute[0]     = origin;
+        scratchRoute[n + 1] = origin;
+
+        City[] AsRoute(int[] chromosome)
+        {
+            for (int k = 0; k < n; k++)
+                scratchRoute[k + 1] = cities[chromosome[k]];
+            return scratchRoute;
+        }
+
+        // The value being minimised: distance, or total operating cost.
+        double RouteScore(int[] chromosome) =>
+            costMode ? costModel.TotalCost(AsRoute(chromosome))
+                     : RouteDistance(chromosome);
+
+        // Fitness = 1 / score (maximized by the GA ≡ minimizing the score).
+        double Fitness(int[] chromosome) => 1.0 / (RouteScore(chromosome) + 1e-10);
 
         // Fisher–Yates shuffle.
         void Shuffle(int[] arr)
@@ -160,12 +194,16 @@ public class GeneticRouteSolver
         void EmitProgress(int generation, bool isFinal)
         {
             if (progress == null) return;
+
+            // Distance is reported explicitly rather than as 1 / bestFitness: in cost mode
+            // fitness is the reciprocal of cost, not of distance.
             progress.Report(new RouteProgressInfo
             {
                 PermutationsEvaluated = generation,
                 TotalPermutations     = MaxGenerations,
                 PercentComplete       = isFinal ? 100.0 : (double)generation / MaxGenerations * 100.0,
-                CurrentBestDistance   = 1.0 / bestFitness,
+                CurrentBestDistance   = RouteDistance(bestChromosome),
+                CurrentBestCost       = costMode ? 1.0 / bestFitness : null,
                 CurrentBestRoute      = bestChromosome.Select(idx => cities[idx]).ToList()
             });
         }
@@ -295,10 +333,11 @@ public class GeneticRouteSolver
         return new RouteResult
         {
             Route                 = route,
-            TotalDistance         = 1.0 / bestFitness,
+            TotalDistance         = RouteDistance(bestChromosome),
             PermutationsEvaluated = MaxGenerations,   // generations completed
             TotalPermutations     = MaxGenerations,
-            ElapsedTime           = sw.Elapsed
+            ElapsedTime           = sw.Elapsed,
+            Cost                  = costMode ? costModel.Evaluate(route) : null
         };
     }
 }

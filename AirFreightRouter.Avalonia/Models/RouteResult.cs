@@ -31,4 +31,11 @@ public class RouteResult
 
     /// <summary>Gets or sets the wall-clock time taken by the solver.</summary>
     public TimeSpan ElapsedTime { get; set; }
+
+    /// <summary>
+    /// Gets or sets the itemised operating cost of <see cref="Route"/>, or
+    /// <see langword="null"/> when the solver ran with
+    /// <see cref="RouteObjective.ShortestDistance"/>.
+    /// </summary>
+    public RouteCostBreakdown? Cost { get; set; }
 }

@@ -48,8 +48,11 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasResult))]
+    [NotifyPropertyChangedFor(nameof(HasCostResult))]
     [NotifyPropertyChangedFor(nameof(RouteDisplay))]
     [NotifyPropertyChangedFor(nameof(ResultDistanceDisplay))]
+    [NotifyPropertyChangedFor(nameof(ResultCostDisplay))]
+    [NotifyPropertyChangedFor(nameof(ResultCostBreakdownDisplay))]
     [NotifyPropertyChangedFor(nameof(ResultPermutationsDisplay))]
     [NotifyPropertyChangedFor(nameof(ResultElapsedDisplay))]
     private RouteResult? _currentResult;
@@ -84,6 +87,12 @@ public partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PermutationsDisplay))]
     [NotifyPropertyChangedFor(nameof(ResultPermutationsDisplay))]
     private SolverMode _selectedSolver = SolverMode.BruteForce;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDistanceObjectiveSelected))]
+    [NotifyPropertyChangedFor(nameof(IsCostObjectiveSelected))]
+    [NotifyPropertyChangedFor(nameof(ComputeButtonTooltip))]
+    private RouteObjective _selectedObjective = RouteObjective.ShortestDistance;
 
     [ObservableProperty]
     private string _statusMessage = "Load a city CSV file to begin.";
@@ -121,6 +130,10 @@ public partial class MainViewModel : ObservableObject
     private string _resultTotalDistanceText = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasResultPanelCost))]
+    private string _resultTotalCostText = string.Empty;
+
+    [ObservableProperty]
     private string _resultPermutationsText = string.Empty;
 
     [ObservableProperty]
@@ -144,6 +157,15 @@ public partial class MainViewModel : ObservableObject
 
     public bool HasResult => CurrentResult is not null;
 
+    /// <summary>True when the completed run was priced, i.e. it optimised operating cost.</summary>
+    public bool HasCostResult => CurrentResult?.Cost is not null;
+
+    /// <summary>
+    /// True when the results panel has a cost figure to show — including the partial
+    /// figure shown after a cancelled cost run, where <see cref="HasCostResult"/> is false.
+    /// </summary>
+    public bool HasResultPanelCost => !string.IsNullOrEmpty(ResultTotalCostText);
+
     public bool IsBruteForceSelected
     {
         get => SelectedSolver == SolverMode.BruteForce;
@@ -156,6 +178,18 @@ public partial class MainViewModel : ObservableObject
         set { if (value) SelectedSolver = SolverMode.GeneticAlgorithm; }
     }
 
+    public bool IsDistanceObjectiveSelected
+    {
+        get => SelectedObjective == RouteObjective.ShortestDistance;
+        set { if (value) SelectedObjective = RouteObjective.ShortestDistance; }
+    }
+
+    public bool IsCostObjectiveSelected
+    {
+        get => SelectedObjective == RouteObjective.LowestOperatingCost;
+        set { if (value) SelectedObjective = RouteObjective.LowestOperatingCost; }
+    }
+
     public string RouteDisplay =>
         CurrentResult is null
             ? string.Empty
@@ -165,6 +199,18 @@ public partial class MainViewModel : ObservableObject
         CurrentResult is null
             ? string.Empty
             : $"{CurrentResult.TotalDistance:F4}° (degree-distance)";
+
+    public string ResultCostDisplay =>
+        CurrentResult?.Cost is not { } cost
+            ? string.Empty
+            : $"{cost.TotalCost:C0} total operating cost";
+
+    public string ResultCostBreakdownDisplay =>
+        CurrentResult?.Cost is not { } cost
+            ? string.Empty
+            : $"Fuel {cost.FuelCost:C0}  ·  Handling {cost.HandlingFees:C0}  ·  " +
+              $"Late {cost.LatePenalty:C0}  ·  " +
+              $"{cost.CurfewViolations} curfew ({cost.CurfewPenalty:C0})";
 
     public string ResultPermutationsDisplay =>
         CurrentResult is null
@@ -195,9 +241,14 @@ public partial class MainViewModel : ObservableObject
                 return "Load a CSV file first (Ctrl+O).";
             if (SelectedCities.Count < 2)
                 return "Select at least 2 delivery cities.";
+
+            string goal = SelectedObjective == RouteObjective.LowestOperatingCost
+                ? "cheapest-to-operate"
+                : "shortest";
+
             return SelectedSolver == SolverMode.GeneticAlgorithm
-                ? $"Find a near-optimal route through {SelectedCities.Count} cities using Genetic Algorithm (Ctrl+Enter)."
-                : $"Find the shortest route through {SelectedCities.Count} cities (Ctrl+Enter).";
+                ? $"Find a near-optimal {goal} route through {SelectedCities.Count} cities using Genetic Algorithm (Ctrl+Enter)."
+                : $"Find the {goal} route through {SelectedCities.Count} cities (Ctrl+Enter).";
         }
     }
 
@@ -418,8 +469,8 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var result = SelectedSolver == SolverMode.GeneticAlgorithm
-                ? await _gaSolver.FindRouteAsync(deliveryCities, _origin, progress, _cts.Token)
-                : await _solver.FindShortestRouteAsync(deliveryCities, _origin, progress, _cts.Token);
+                ? await _gaSolver.FindRouteAsync(deliveryCities, _origin, SelectedObjective, progress, _cts.Token)
+                : await _solver.FindShortestRouteAsync(deliveryCities, _origin, SelectedObjective, progress, _cts.Token);
 
             if (result is not null)
             {
@@ -427,9 +478,12 @@ public partial class MainViewModel : ObservableObject
                 ProgressPercent     = 100;
                 MapRoute            = result.Route;
                 MapRouteStatusText  = "Complete";
-                MapBestDistanceText = $"{result.TotalDistance:F4}°";
+                MapBestDistanceText = result.Cost is { } finalCost
+                    ? $"{finalCost.TotalCost:C0}"
+                    : $"{result.TotalDistance:F4}°";
                 StatusMessage       =
                     $"Optimal route found!  " +
+                    (result.Cost is { } c ? $"Cost: {c.TotalCost:C0}  |  " : string.Empty) +
                     $"Distance: {result.TotalDistance:F4}°  |  " +
                     $"{result.PermutationsEvaluated:N0} permutations evaluated  |  " +
                     $"Elapsed: {result.ElapsedTime:mm\\:ss\\.ff}";
@@ -525,13 +579,18 @@ public partial class MainViewModel : ObservableObject
             IsProgressIndeterminate = false;
         CurrentProgress = info;
         ProgressPercent = info.PercentComplete;
+
+        string bestSoFar = info.CurrentBestCost is { } cost
+            ? $"{cost:C0}"
+            : $"{info.CurrentBestDistance:F4}°";
+
         StatusMessage = SelectedSolver == SolverMode.GeneticAlgorithm
             ? $"Computing…  {info.PercentComplete:F1}%  |  " +
               $"Generation {info.PermutationsEvaluated:N0} / {info.TotalPermutations:N0}  |  " +
-              $"Best so far: {info.CurrentBestDistance:F4}°"
+              $"Best so far: {bestSoFar}"
             : $"Computing…  {info.PercentComplete:F1}%  |  " +
               $"{info.PermutationsEvaluated:N0} / {info.TotalPermutations:N0} permutations  |  " +
-              $"Best so far: {info.CurrentBestDistance:F4}°";
+              $"Best so far: {bestSoFar}";
 
         var now = DateTime.Now;
         if ((now - _lastMapRouteUpdateAt).TotalMilliseconds >= MapRouteThrottleMs
@@ -542,7 +601,7 @@ public partial class MainViewModel : ObservableObject
             liveRoute.Add(_origin);
 
             MapRoute              = liveRoute;
-            MapBestDistanceText   = $"{info.CurrentBestDistance:F4}°";
+            MapBestDistanceText   = bestSoFar;
             _lastMapRouteUpdateAt = now;
         }
     }
@@ -559,6 +618,7 @@ public partial class MainViewModel : ObservableObject
             HasResultPanel          = false;
             ResultPanelTitle        = string.Empty;
             ResultTotalDistanceText = string.Empty;
+            ResultTotalCostText     = string.Empty;
             ResultPermutationsText  = string.Empty;
             ResultElapsedText       = string.Empty;
             ResultLegs              = [];
@@ -568,16 +628,23 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
+        bool costMode = SelectedObjective == RouteObjective.LowestOperatingCost;
+
         HasResultPanel   = true;
         ResultPanelTitle = cancelled
             ? "Computation Cancelled – Best Route So Far"
             : SelectedSolver == SolverMode.GeneticAlgorithm
-                ? "Near-Optimal Route Found (Genetic Algorithm)"
-                : "Optimal Route Found";
+                ? costMode
+                    ? "Near-Optimal Lowest-Cost Route Found (Genetic Algorithm)"
+                    : "Near-Optimal Route Found (Genetic Algorithm)"
+                : costMode
+                    ? "Lowest-Cost Route Found"
+                    : "Optimal Route Found";
 
         if (result is not null)
         {
             ResultTotalDistanceText = $"{result.TotalDistance:F4}°";
+            ResultTotalCostText     = result.Cost is { } cost ? $"{cost.TotalCost:C0}" : string.Empty;
             ResultPermutationsText  = SelectedSolver == SolverMode.GeneticAlgorithm
                 ? $"{result.PermutationsEvaluated:N0} generations"
                 : $"{result.PermutationsEvaluated:N0} permutations";
@@ -589,6 +656,10 @@ public partial class MainViewModel : ObservableObject
             for (int i = 0; i < route.Count - 1; i++)
                 total += route[i].DistanceTo(route[i + 1]);
             ResultTotalDistanceText = $"{total:F4}° (partial)";
+            var partialRoute = route as IReadOnlyList<City> ?? route.ToList();
+            ResultTotalCostText     = costMode
+                ? $"{new RouteCostModel(partialRoute).TotalCost(partialRoute):C0} (partial)"
+                : string.Empty;
             ResultPermutationsText  = string.Empty;
             ResultElapsedText       = string.Empty;
         }
