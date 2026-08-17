@@ -5,11 +5,14 @@ namespace AirFreightRouter.Services;
 
 /// <summary>
 /// Brute-force Travelling Salesman solver that evaluates every permutation of the
-/// delivery cities to guarantee the globally shortest round-trip route.
+/// delivery cities to guarantee the globally optimal round-trip route.
 /// </summary>
 /// <remarks>
 /// Practical upper bound: the algorithm is feasible for up to ~11 or –12 delivery cities
 /// Beyond that, computation time grows factorially and a heuristic solver should be preferred.
+///
+/// "Optimal" is defined by the caller's <see cref="RouteObjective"/>: either the shortest
+/// total distance, or the lowest operating cost as priced by <see cref="RouteCostModel"/>.
 /// </remarks>
 public class RouteSolver
 {
@@ -21,15 +24,19 @@ public class RouteSolver
     private const long TimeCheckInterval = 1_000;
 
     /// <summary>
-    /// Asynchronously finds the shortest round-trip route that starts at
-    /// <paramref name="origin"/>, visits every city in <paramref name="cities"/>
-    /// exactly once, and returns to <paramref name="origin"/>.
+    /// Asynchronously finds the best round-trip route — by the chosen
+    /// <paramref name="objective"/> — that starts at <paramref name="origin"/>, visits
+    /// every city in <paramref name="cities"/> exactly once, and returns to
+    /// <paramref name="origin"/>.
     /// </summary>
     /// <param name="cities">
     /// The delivery cities to visit (must not include the origin city).
     /// </param>
     /// <param name="origin">
     /// The fixed start and end point of the route (e.g. Albany, NY).
+    /// </param>
+    /// <param name="objective">
+    /// The quantity to minimise — total distance or total operating cost.
     /// </param>
     /// <param name="progress">
     /// Receives periodic <see cref="RouteProgressInfo"/> snapshots. May be
@@ -45,6 +52,7 @@ public class RouteSolver
     public async Task<RouteResult?> FindShortestRouteAsync(
         List<City> cities,
         City origin,
+        RouteObjective objective,
         IProgress<RouteProgressInfo> progress,
         CancellationToken cancellationToken)
     {
@@ -54,7 +62,7 @@ public class RouteSolver
         try
         {
             return await Task.Run(
-                () => SolveInternal(cities, origin, progress, cancellationToken),
+                () => SolveInternal(cities, origin, objective, progress, cancellationToken),
                 cancellationToken);
         }
         catch (OperationCanceledException)
@@ -70,17 +78,27 @@ public class RouteSolver
     private static RouteResult? SolveInternal(
         List<City>               cities,
         City                     origin,
+        RouteObjective           objective,
         IProgress<RouteProgressInfo>? progress,
         CancellationToken        cancellationToken)
     {
         int  n                  = cities.Count;
         long totalPermutations  = Factorial(n);
+        bool costMode           = objective == RouteObjective.LowestOperatingCost;
+        var  costModel          = new RouteCostModel(cities.Append(origin));
 
         // Working array mutated in-place by Heap's algorithm.
         City[] perm    = cities.ToArray();
         // Heap's algorithm control counters, one per position.
         int[]  c       = new int[n];
 
+        // Scratch buffer holding origin → perm → origin, reused across every cost
+        // evaluation so the inner loop stays allocation-free.  Only used in cost mode.
+        City[] scratchRoute = new City[n + 2];
+        scratchRoute[0]     = origin;
+        scratchRoute[n + 1] = origin;
+
+        double  bestScore    = double.MaxValue;
         double  bestDistance = double.MaxValue;
         City[]? bestPerm     = null;
         long    evaluated    = 0L;
@@ -101,12 +119,22 @@ public class RouteSolver
             return d;
         }
 
+        // Copies the current permutation into the scratch route and prices it.
+        double RouteCost()
+        {
+            for (int k = 0; k < n; k++)
+                scratchRoute[k + 1] = perm[k];
+            return costModel.TotalCost(scratchRoute);
+        }
+
         void EvaluateCurrent()
         {
-            double dist = RouteDistance();
+            double dist  = RouteDistance();
+            double score = costMode ? RouteCost() : dist;
             evaluated++;
-            if (dist < bestDistance)
+            if (score < bestScore)
             {
+                bestScore    = score;
                 bestDistance = dist;
                 bestPerm     = (City[])perm.Clone();
             }
@@ -123,6 +151,7 @@ public class RouteSolver
                                             ? 100.0
                                             : (double)evaluated / totalPermutations * 100.0,
                 CurrentBestDistance   = bestDistance == double.MaxValue ? 0.0 : bestDistance,
+                CurrentBestCost       = costMode && bestScore != double.MaxValue ? bestScore : null,
                 CurrentBestRoute      = bestPerm?.ToList()
             });
         }
@@ -204,7 +233,8 @@ public class RouteSolver
             TotalDistance        = bestDistance == double.MaxValue ? 0.0 : bestDistance,
             PermutationsEvaluated = evaluated,
             TotalPermutations    = totalPermutations,
-            ElapsedTime          = sw.Elapsed
+            ElapsedTime          = sw.Elapsed,
+            Cost                 = costMode ? costModel.Evaluate(route) : null
         };
     }
 
