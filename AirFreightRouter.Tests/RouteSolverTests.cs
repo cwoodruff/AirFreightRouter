@@ -32,7 +32,7 @@ public class RouteSolverTests
     public async Task FindShortestRouteAsync_ThreeCities_EvaluatesExactlySixPermutations()
     {
         var result = await Solver().FindShortestRouteAsync(
-            ThreeCities(), Albany(), null!, CancellationToken.None);
+            ThreeCities(), Albany(), RouteObjective.ShortestDistance, null!, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(6L, result.PermutationsEvaluated);
@@ -48,7 +48,7 @@ public class RouteSolverTests
         var cities = new List<City> { new City("Boston", "MA", 42.3601, -71.0589) };
 
         var result = await Solver().FindShortestRouteAsync(
-            cities, Albany(), null!, CancellationToken.None);
+            cities, Albany(), RouteObjective.ShortestDistance, null!, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(1L, result.PermutationsEvaluated);
@@ -66,7 +66,7 @@ public class RouteSolverTests
     public async Task FindShortestRouteAsync_Result_StartsAndEndsWithOrigin()
     {
         var result = await Solver().FindShortestRouteAsync(
-            ThreeCities(), Albany(), null!, CancellationToken.None);
+            ThreeCities(), Albany(), RouteObjective.ShortestDistance, null!, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal("Albany", result.Route.First().Name);
@@ -80,7 +80,7 @@ public class RouteSolverTests
     public async Task FindShortestRouteAsync_ThreeCities_RouteHasFiveCities()
     {
         var result = await Solver().FindShortestRouteAsync(
-            ThreeCities(), Albany(), null!, CancellationToken.None);
+            ThreeCities(), Albany(), RouteObjective.ShortestDistance, null!, CancellationToken.None);
 
         Assert.NotNull(result);
         // Albany + 3 delivery cities + Albany = 5
@@ -95,7 +95,7 @@ public class RouteSolverTests
     {
         var deliveryCities = ThreeCities();
         var result = await Solver().FindShortestRouteAsync(
-            deliveryCities, Albany(), null!, CancellationToken.None);
+            deliveryCities, Albany(), RouteObjective.ShortestDistance, null!, CancellationToken.None);
 
         Assert.NotNull(result);
 
@@ -119,7 +119,7 @@ public class RouteSolverTests
     public async Task FindShortestRouteAsync_TotalDistance_MatchesRouteSegments()
     {
         var result = await Solver().FindShortestRouteAsync(
-            ThreeCities(), Albany(), null!, CancellationToken.None);
+            ThreeCities(), Albany(), RouteObjective.ShortestDistance, null!, CancellationToken.None);
 
         Assert.NotNull(result);
 
@@ -140,7 +140,7 @@ public class RouteSolverTests
         var deliveryCities = ThreeCities();
         var origin         = Albany();
         var result         = await Solver().FindShortestRouteAsync(
-            deliveryCities, origin, null!, CancellationToken.None);
+            deliveryCities, origin, RouteObjective.ShortestDistance, null!, CancellationToken.None);
 
         Assert.NotNull(result);
 
@@ -174,7 +174,7 @@ public class RouteSolverTests
         cts.Cancel();
 
         var result = await Solver().FindShortestRouteAsync(
-            ThreeCities(), Albany(), null!, cts.Token);
+            ThreeCities(), Albany(), RouteObjective.ShortestDistance, null!, cts.Token);
 
         Assert.Null(result);
     }
@@ -197,7 +197,7 @@ public class RouteSolverTests
         cts.CancelAfter(TimeSpan.FromMilliseconds(30));
 
         var result = await Solver().FindShortestRouteAsync(
-            cities, Albany(), null!, cts.Token);
+            cities, Albany(), RouteObjective.ShortestDistance, null!, cts.Token);
 
         Assert.Null(result);
     }
@@ -217,7 +217,7 @@ public class RouteSolverTests
         var progress = new Progress<RouteProgressInfo>(r => reports.Add(r));
 
         await Solver().FindShortestRouteAsync(
-            ThreeCities(), Albany(), progress, CancellationToken.None);
+            ThreeCities(), Albany(), RouteObjective.ShortestDistance, progress, CancellationToken.None);
 
         // Allow the Progress<T> post to the sync context to complete.
         await Task.Delay(50);

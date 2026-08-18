@@ -1,8 +1,9 @@
 # SkyRoute Express – Air Freight Route Optimizer
 
-A Windows desktop application that computes the globally shortest round-trip air-freight
-delivery route from Albany, NY through a user-selected set of cities, using a guaranteed
-brute-force permutation search.
+A cross-platform desktop application that computes the optimal round-trip air-freight
+delivery route from Albany, NY through a user-selected set of cities — either the
+globally shortest route via a guaranteed brute-force permutation search, or a
+near-optimal one via a genetic algorithm.
 
 ![Screenshot](docs/screenshot.png)
 
@@ -12,12 +13,12 @@ brute-force permutation search.
 
 | Requirement | Version |
 |---|---|
-| .NET SDK | 8.0 or later |
-| Operating System | Windows 10 (1903) or Windows 11 |
+| .NET SDK | 10.0 or later |
+| Operating System | Windows · macOS · Linux |
 | IDE (optional) | Visual Studio 2022 · Rider · VS Code + C# Dev Kit |
 
-> **Note:** The application targets `net8.0-windows` and uses WPF, so it builds and runs
-> on Windows only. Cross-platform builds are not supported.
+> **Note:** The application targets `net10.0` and uses Avalonia, so it builds and runs
+> on Windows, macOS, and Linux.
 
 ---
 
@@ -39,7 +40,7 @@ dotnet build
 ### Run
 
 ```bash
-dotnet run --project AirFreightRouter
+dotnet run --project AirFreightRouter.Avalonia
 ```
 
 ### Run Tests
@@ -61,7 +62,7 @@ All 28 unit tests should pass with no failures.
 5. Press `Escape` or click **Cancel Computation** to stop a running search early.
    A partial "best so far" result is retained for inspection.
 
-A bundled sample file is provided at `AirFreightRouter/Data/TestCities.csv`
+A bundled sample file is provided at `AirFreightRouter.Avalonia/Data/TestCities.csv`
 (12 north-eastern US cities including Albany).
 
 ---
@@ -75,10 +76,10 @@ The application follows the Model-View-ViewModel pattern enforced by
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  View (WPF)                                              │
-│  MainWindow.xaml        – main shell, custom title bar   │
-│  RouteMapControl.xaml   – canvas-based interactive map   │
-│  AboutWindow.xaml       – modal "About" dialog           │
+│  View (Avalonia)                                         │
+│  MainWindow.axaml       – main shell, custom title bar   │
+│  RouteMapControl.axaml  – canvas-based interactive map   │
+│  AboutWindow.axaml      – modal "About" dialog           │
 └───────────────┬─────────────────────────────────────────┘
                 │  Data-binding / Commands
 ┌───────────────▼─────────────────────────────────────────┐
@@ -102,6 +103,8 @@ The application follows the Model-View-ViewModel pattern enforced by
 │  Services                                                │
 │  CityDataService        – CSV parsing, Albany factory    │
 │  RouteSolver            – Heap's algorithm solver        │
+│  GeneticRouteSolver     – population-based heuristic     │
+│  RouteCostModel         – operating-cost fitness         │
 │  MapRenderer            – geo → canvas projection        │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -129,29 +132,40 @@ human-readable identifiers required by the UI and the solver.
 
 ```
 AirFreightRouter.sln
-├── AirFreightRouter/                  Main application (WPF, net8.0-windows)
+├── AirFreightRouter.Avalonia/         Main application (Avalonia, net10.0)
 │   ├── Data/
-│   │   └── TestCities.csv             Bundled sample dataset (12 US cities)
+│   │   ├── TestCities.csv             Bundled sample dataset (12 US cities)
+│   │   ├── tsp_cities_100.csv         Larger TSP dataset (100 cities)
+│   │   └── tsp_cities_1104.csv        Larger TSP dataset (1,104 cities)
 │   ├── Models/
 │   │   ├── Coordinates.cs
 │   │   ├── City.cs
+│   │   ├── CityOperations.cs          Derived per-city fee/deadline/curfew
 │   │   ├── RouteResult.cs
+│   │   ├── RouteCostBreakdown.cs      Itemised operating cost
 │   │   ├── RouteProgressInfo.cs
-│   │   └── RouteLeg.cs
+│   │   ├── RouteLeg.cs
+│   │   ├── RouteObjective.cs          Distance vs. operating cost
+│   │   └── SolverMode.cs              Brute force vs. genetic algorithm
 │   ├── Services/
 │   │   ├── CityDataService.cs
 │   │   ├── RouteSolver.cs
+│   │   ├── GeneticRouteSolver.cs
+│   │   ├── RouteCostModel.cs
 │   │   └── MapRenderer.cs
 │   ├── ViewModels/
 │   │   ├── MainViewModel.cs
 │   │   └── SelectableCityViewModel.cs
 │   ├── Views/
-│   │   ├── RouteMapControl.xaml[.cs]  Canvas map UserControl
-│   │   └── AboutWindow.xaml[.cs]      Modal About dialog
-│   ├── App.xaml                       Global styles & resource dictionary
-│   ├── MainWindow.xaml[.cs]           Main shell
+│   │   ├── RouteMapControl.axaml[.cs] Canvas map UserControl
+│   │   ├── AboutWindow.axaml[.cs]     Modal About dialog
+│   │   └── AppMessageBox.axaml[.cs]   Shared message-box dialog
+│   ├── Converters/
+│   │   └── LegCardConverters.cs
+│   ├── App.axaml                      Global styles & resource dictionary
+│   ├── MainWindow.axaml[.cs]          Main shell
 │   └── InternalsVisibleTo.cs          Exposes internals to test project
-└── AirFreightRouter.Tests/            xUnit test project (net8.0-windows)
+└── AirFreightRouter.Tests/            xUnit test project (net10.0)
     ├── CoordinatesTests.cs            (3 tests)
     ├── CityDataServiceTests.cs        (7 tests)
     ├── RouteSolverTests.cs            (10 tests)
@@ -430,4 +444,4 @@ Heap, B. R. (1963). "Permutations by Interchanges."
 *The Computer Journal*, 6(3), 293–294.
 <https://doi.org/10.1093/comjnl/6.3.293>
 
-Built with **.NET 8** · **WPF** · **CommunityToolkit.Mvvm**
+Built with **.NET 10** · **Avalonia** · **CommunityToolkit.Mvvm**
