@@ -14,7 +14,7 @@ namespace AirFreightRouter.Services;
 /// The CSV data source supplies only name, state, latitude and longitude, so the
 /// commercial inputs — handling fee, delivery deadline, and airport curfew window — are
 /// derived from a stable FNV-1a hash of <c>"Name,State"</c>.  <see cref="string.GetHashCode()"/>
-/// is deliberately <em>not</em> used: it is randomised per process in .NET, which would make
+/// is deliberately <em>not</em> used: it is randomized per process in .NET, which would make
 /// the same city set score differently between runs.
 /// </para>
 /// <para>
@@ -87,7 +87,7 @@ public sealed class RouteCostModel
     }
 
     /// <summary>
-    /// Computes the itemised operating cost of a complete round-trip route.
+    /// Computes the itemized operating cost of a complete round-trip route.
     /// </summary>
     /// <param name="route">
     /// The ordered stop sequence <c>origin → delivery cities → origin</c>.  The first and
@@ -143,7 +143,7 @@ public sealed class RouteCostModel
 
     /// <summary>
     /// Computes just the total operating cost of <paramref name="route"/> — the value the
-    /// solvers minimise.  See <see cref="Evaluate"/> for the itemised form.
+    /// solvers minimize.  See <see cref="Evaluate"/> for the itemized form.
     /// </summary>
     public double TotalCost(IReadOnlyList<City> route) => Evaluate(route).TotalCost;
 
@@ -167,7 +167,7 @@ public sealed class RouteCostModel
 
     /// <summary>
     /// FNV-1a 32-bit hash — a small, well-distributed, and above all <em>stable</em>
-    /// string hash, unlike <see cref="string.GetHashCode()"/> which is randomised per process.
+    /// string hash, unlike <see cref="string.GetHashCode()"/> which is randomized per process.
     /// </summary>
     private static uint Fnv1a(string text)
     {

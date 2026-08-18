@@ -19,7 +19,7 @@ namespace AirFreightRouter.Services;
 /// Fitness is the reciprocal of whichever quantity the caller's
 /// <see cref="RouteObjective"/> selects — route distance, or the operating cost
 /// computed by <see cref="RouteCostModel"/> — so the GA maximises fitness while
-/// minimising the chosen objective.
+/// minimizing the chosen objective.
 ///
 /// Algorithm reference:
 ///   Goldberg, D. E. (1989). Genetic Algorithms in Search, Optimization, and Machine Learning.
@@ -45,7 +45,7 @@ public class GeneticRouteSolver
     /// </param>
     /// <param name="origin">The fixed start and end point of the route.</param>
     /// <param name="objective">
-    /// The fitness function to maximise — shortest distance or lowest operating cost.
+    /// The fitness function to maximize — shortest distance or lowest operating cost.
     /// </param>
     /// <param name="progress">
     /// Receives a <see cref="RouteProgressInfo"/> after every generation.
@@ -151,7 +151,7 @@ public class GeneticRouteSolver
             return scratchRoute;
         }
 
-        // The value being minimised: distance, or total operating cost.
+        // The value being minimized: distance, or total operating cost.
         double RouteScore(int[] chromosome) =>
             costMode ? costModel.TotalCost(AsRoute(chromosome))
                      : RouteDistance(chromosome);
@@ -169,7 +169,7 @@ public class GeneticRouteSolver
             }
         }
 
-        // ── Initialise population ────────────────────────────────────────────
+        // ── Initialize population ────────────────────────────────────────────
         var population = new (int[] Chromosome, double Fitness)[PopulationSize];
         for (int i = 0; i < PopulationSize; i++)
         {

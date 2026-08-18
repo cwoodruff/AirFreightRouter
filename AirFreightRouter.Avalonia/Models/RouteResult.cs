@@ -33,7 +33,7 @@ public class RouteResult
     public TimeSpan ElapsedTime { get; set; }
 
     /// <summary>
-    /// Gets or sets the itemised operating cost of <see cref="Route"/>, or
+    /// Gets or sets the itemized operating cost of <see cref="Route"/>, or
     /// <see langword="null"/> when the solver ran with
     /// <see cref="RouteObjective.ShortestDistance"/>.
     /// </summary>

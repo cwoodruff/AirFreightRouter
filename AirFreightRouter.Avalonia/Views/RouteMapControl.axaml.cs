@@ -215,7 +215,7 @@ public partial class RouteMapControl : UserControl
         bool isFirstLoad = !_hadCities;
         _hadCities = true;
 
-        _renderer.Initialise(cities, w, h);
+        _renderer.Initialize(cities, w, h);
 
         DrawGrid(w, h);
         DrawRoute();

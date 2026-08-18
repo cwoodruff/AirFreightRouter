@@ -339,7 +339,7 @@
             </ControlTheme>
 
             <!-- ================================================================ -->
-            <!-- COLOUR BRUSHES                                                   -->
+            <!-- COLOR BRUSHES                                                   -->
             <!-- ================================================================ -->
 
             <!-- Backgrounds -->
@@ -359,7 +359,7 @@
             <SolidColorBrush x:Key="AccentDimBrush"     Color="#1A2E48"/>
             <SolidColorBrush x:Key="AccentTextBrush"    Color="#4A9DFF"/>
 
-            <!-- State colours -->
+            <!-- State colors -->
             <SolidColorBrush x:Key="SuccessBrush"       Color="#4ADE80"/>
             <SolidColorBrush x:Key="WarningBrush"       Color="#FBBF24"/>
 

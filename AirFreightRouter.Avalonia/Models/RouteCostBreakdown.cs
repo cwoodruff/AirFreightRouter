@@ -1,7 +1,7 @@
 namespace AirFreightRouter.Models;
 
 /// <summary>
-/// The itemised operating cost of a complete round-trip route, as scored by the
+/// The itemized operating cost of a complete round-trip route, as scored by the
 /// <see cref="RouteObjective.LowestOperatingCost"/> fitness function.
 /// </summary>
 /// <remarks>
@@ -29,6 +29,6 @@ public sealed class RouteCostBreakdown
     /// </summary>
     public double CurfewPenalty { get; init; }
 
-    /// <summary>The sum of all four terms — the value the solver minimises.</summary>
+    /// <summary>The sum of all four terms — the value the solver minimizes.</summary>
     public double TotalCost { get; init; }
 }

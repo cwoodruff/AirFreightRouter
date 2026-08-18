@@ -20,7 +20,7 @@ public class RouteSolver
     private const long ProgressEveryNPermutations = 10_000;
     private const double ProgressEveryMs           = 100.0;
 
-    // Check elapsed time every this many permutations to amortise Stopwatch overhead.
+    // Check elapsed time every this many permutations to amortize Stopwatch overhead.
     private const long TimeCheckInterval = 1_000;
 
     /// <summary>

@@ -16,7 +16,7 @@ public sealed class MapRenderer
     private double _lonRange, _latRange;
     private double _drawWidth, _drawHeight;
 
-    public void Initialise(IEnumerable<City> cities, double canvasWidth, double canvasHeight)
+    public void Initialize(IEnumerable<City> cities, double canvasWidth, double canvasHeight)
     {
         double minLat = double.MaxValue, maxLat = double.MinValue;
         double minLon = double.MaxValue, maxLon = double.MinValue;
